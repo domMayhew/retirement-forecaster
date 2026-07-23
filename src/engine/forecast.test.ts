@@ -1,0 +1,165 @@
+// SPEC: runForecast — stitches accumulation + retirement into a full projection.
+//
+// PHASE BOUNDARIES (documented convention):
+//   accumulation : ages [currentAge, retirementAge)   — up to retirementAge - 1
+//   retirement   : ages [retirementAge, endAge]        — inclusive of endAge
+//
+// Growth-timing convention throughout: "flow first, then grow."
+
+import { describe, it, expect } from 'vitest'
+import { runForecast } from './forecast'
+import type { ForecastInput, SavingsPlanSegment } from './types'
+
+function seg(over: Partial<SavingsPlanSegment> = {}): SavingsPlanSegment {
+  return {
+    id: 's1',
+    monthlyRRSP: 0,
+    monthlyTFSA: 0,
+    refundReinvestFraction: 1.0,
+    untilAge: 65,
+    ...over,
+  }
+}
+
+// A fully hand-checkable scenario:
+//   - Age 64 is the single accumulation year (retirementAge 65).
+//   - No contributions, so accumulation is pure 10% growth of $100k + $100k.
+//   - Retirement years 65 and 66 each need $45,000/yr from a 50/50 split at 20% tax.
+//
+//   Accumulation age 64: (100,000) * 1.10 = 110,000 in each account.
+//   Retirement age 65: total 220,000; gross withdrawal 50,000 (25k + 25k);
+//                      tax 5,000; net 45,000; then grow: 85,000 * 1.10 = 93,500 each.
+//   Retirement age 66: total 187,000; again 25k + 25k out, net 45,000;
+//                      then grow: 68,500 * 1.10 = 75,350 each.
+function baseInput(): ForecastInput {
+  return {
+    initial: {
+      currentAge: 64,
+      currentRRSP: 100000,
+      currentTFSA: 100000,
+      currentIncome: 0,
+      retirementAge: 65,
+      incomeTaxRate: 0.25,
+    },
+    savingsPlan: [seg({ untilAge: 65 })],
+    retirement: {
+      requiredMonthlyIncome: 3750, // 45,000 / yr
+      cppAnnual: 0,
+      cppStartAge: 200, // effectively never
+      oasAnnual: 0,
+      oasStartAge: 200, // effectively never
+      retirementTaxRate: 0.20,
+    },
+    rateOfReturn: 0.10,
+    endAge: 66,
+  }
+}
+
+describe('runForecast: phase layout and coverage', () => {
+  it('produces one row per age from currentAge through endAge inclusive', () => {
+    const rows = runForecast(baseInput())
+    expect(rows.map((r) => r.age)).toEqual([64, 65, 66])
+  })
+
+  it('labels ages before retirementAge as accumulation and the rest as retirement', () => {
+    const rows = runForecast(baseInput())
+    expect(rows.find((r) => r.age === 64)!.phase).toBe('accumulation')
+    expect(rows.find((r) => r.age === 65)!.phase).toBe('retirement')
+    expect(rows.find((r) => r.age === 66)!.phase).toBe('retirement')
+  })
+})
+
+describe('runForecast: the accumulation year grows the opening balances', () => {
+  it('grows $100k in each account by 10% to $110k at age 64', () => {
+    const rows = runForecast(baseInput())
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrsp).toBeCloseTo(110000, 6)
+    expect(y64.tfsa).toBeCloseTo(110000, 6)
+    expect(y64.total).toBeCloseTo(220000, 6)
+  })
+})
+
+describe('runForecast: retirement years deliver the required income and update balances', () => {
+  it('at age 65 withdraws 25k+25k, pays 5k tax, nets the 45k gap, then grows to 93.5k each', () => {
+    const rows = runForecast(baseInput())
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 6)
+    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 6)
+    expect(y65.taxPaid).toBeCloseTo(5000, 6)
+    expect(y65.netFromSavings).toBeCloseTo(45000, 6)
+    expect(y65.rrsp).toBeCloseTo(93500, 6)
+    expect(y65.tfsa).toBeCloseTo(93500, 6)
+    expect(y65.shortfall).toBe(false)
+  })
+
+  it('at age 66 again nets the 45k gap and grows the remainder to 75,350 each', () => {
+    const rows = runForecast(baseInput())
+    const y66 = rows.find((r) => r.age === 66)!
+    expect(y66.netFromSavings).toBeCloseTo(45000, 6)
+    expect(y66.rrsp).toBeCloseTo(75350, 6)
+    expect(y66.tfsa).toBeCloseTo(75350, 6)
+  })
+})
+
+describe('runForecast: CPP/OAS reduce the amount drawn from savings', () => {
+  it('shrinks the savings gap by CPP once it starts (45k need - 15k CPP = 30k from savings)', () => {
+    const input = baseInput()
+    input.retirement.cppAnnual = 15000
+    input.retirement.cppStartAge = 65
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.cpp).toBe(15000)
+    // gap now 30,000 -> net cash from savings equals that gap.
+    expect(y65.netFromSavings).toBeCloseTo(30000, 6)
+  })
+})
+
+describe('runForecast: ordered savings-plan segments switch at their untilAge', () => {
+  it('applies segment 1 through its untilAge, then segment 2 for later years', () => {
+    // Ages 40,41,42 are accumulation (retirementAge 43). incomeTaxRate 0 and
+    // rateOfReturn 0 so each contribution lands 1:1.
+    //   seg1 (until 41): $1,000/mo -> 12,000/yr  -> applies to ages 40, 41
+    //   seg2 (until 43): $2,000/mo -> 24,000/yr  -> applies to age 42
+    //   RRSP: 12,000 -> 24,000 -> 48,000
+    const input: ForecastInput = {
+      initial: {
+        currentAge: 40,
+        currentRRSP: 0,
+        currentTFSA: 0,
+        currentIncome: 0,
+        retirementAge: 43,
+        incomeTaxRate: 0,
+      },
+      savingsPlan: [
+        seg({ id: 'a', monthlyRRSP: 1000, untilAge: 41 }),
+        seg({ id: 'b', monthlyRRSP: 2000, untilAge: 43 }),
+      ],
+      retirement: {
+        requiredMonthlyIncome: 0,
+        cppAnnual: 0,
+        cppStartAge: 200,
+        oasAnnual: 0,
+        oasStartAge: 200,
+        retirementTaxRate: 0.15,
+      },
+      rateOfReturn: 0,
+      endAge: 43,
+    }
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 40)!.rrsp).toBeCloseTo(12000, 6)
+    expect(rows.find((r) => r.age === 41)!.rrsp).toBeCloseTo(24000, 6)
+    expect(rows.find((r) => r.age === 42)!.rrsp).toBeCloseTo(48000, 6)
+  })
+})
+
+describe('runForecast: running out of money flags a shortfall', () => {
+  it('marks shortfall = true once the accounts are exhausted', () => {
+    const input = baseInput()
+    // Require far more than the modest balances can sustain.
+    input.retirement.requiredMonthlyIncome = 100000 // 1.2M/yr
+    input.endAge = 70
+    const rows = runForecast(input)
+    const retirementRows = rows.filter((r) => r.phase === 'retirement')
+    expect(retirementRows.some((r) => r.shortfall)).toBe(true)
+  })
+})
