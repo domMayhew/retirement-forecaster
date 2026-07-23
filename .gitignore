@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Single-file build output (generated, publishable artifact)
+dist-single
+artifact-app.html
