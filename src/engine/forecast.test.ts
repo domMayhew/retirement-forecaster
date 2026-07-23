@@ -44,9 +44,9 @@ function baseInput(): ForecastInput {
     savingsPlan: [seg({ untilAge: 65 })],
     retirement: {
       requiredMonthlyIncome: 3750, // 45,000 / yr
-      cppAnnual: 0,
+      cppMonthly: 0,
       cppStartAge: 200, // effectively never
-      oasAnnual: 0,
+      oasMonthly: 0,
       oasStartAge: 200, // effectively never
       retirementTaxRate: 0.20,
     },
@@ -101,16 +101,20 @@ describe('runForecast: retirement years deliver the required income and update b
   })
 })
 
-describe('runForecast: CPP/OAS reduce the amount drawn from savings', () => {
-  it('shrinks the savings gap by CPP once it starts (45k need - 15k CPP = 30k from savings)', () => {
+describe('runForecast: CPP/OAS are pre-tax and reduce the amount drawn from savings', () => {
+  it('applies the retirement tax rate to CPP, so only its AFTER-TAX value shrinks the gap', () => {
+    // $1,250/mo CPP -> $15,000/yr gross. At 20% tax the after-tax CPP is
+    // 15,000 * 0.80 = 12,000. The 45k need therefore leaves a 33k gap that
+    // savings must net.
     const input = baseInput()
-    input.retirement.cppAnnual = 15000
+    input.retirement.cppMonthly = 1250
     input.retirement.cppStartAge = 65
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
-    expect(y65.cpp).toBe(15000)
-    // gap now 30,000 -> net cash from savings equals that gap.
-    expect(y65.netFromSavings).toBeCloseTo(30000, 6)
+    expect(y65.cpp).toBe(15000) // gross annual
+    expect(y65.cppAfterTax).toBeCloseTo(12000, 6) // after 20% tax
+    // gap now 33,000 -> net cash from savings equals that gap.
+    expect(y65.netFromSavings).toBeCloseTo(33000, 6)
   })
 })
 
@@ -136,9 +140,9 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
       ],
       retirement: {
         requiredMonthlyIncome: 0,
-        cppAnnual: 0,
+        cppMonthly: 0,
         cppStartAge: 200,
-        oasAnnual: 0,
+        oasMonthly: 0,
         oasStartAge: 200,
         retirementTaxRate: 0.15,
       },

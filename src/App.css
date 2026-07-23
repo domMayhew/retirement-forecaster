@@ -328,6 +328,57 @@ table {
   color: #e0245e;
 }
 
+/* Grouped two-row header. */
+.results thead th[colspan] {
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.results thead th.sub {
+  font-weight: 500;
+  color: var(--text);
+  opacity: 0.8;
+  top: 31px; /* sits below the group-header row when scrolling */
+}
+
+/* Retirement years whose withdrawal is below the 5% RRSP minimum. */
+.row-below-min {
+  background: rgba(230, 162, 60, 0.09);
+}
+.row-below-min:hover {
+  background: rgba(230, 162, 60, 0.16);
+}
+.cell-below-min {
+  color: #b26a00;
+  font-weight: 600;
+}
+
+/* Legend above the projection table. */
+.table-legend {
+  font-size: 12px;
+  color: var(--text);
+  margin: 0 0 12px;
+  line-height: 1.7;
+}
+.swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin: 0 5px 0 2px;
+}
+.table-legend .swatch:not(:first-child) {
+  margin-left: 14px;
+}
+.swatch-below {
+  background: rgba(230, 162, 60, 0.5);
+  border: 1px solid #e6a23c;
+}
+.swatch-shortfall {
+  background: rgba(224, 36, 94, 0.2);
+  border: 1px solid #e0245e;
+}
+
 .empty {
   color: var(--text);
   font-size: 14px;

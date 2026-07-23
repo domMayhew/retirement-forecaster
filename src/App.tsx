@@ -35,9 +35,9 @@ const DEFAULT_INPUT: ForecastInput = {
   ],
   retirement: {
     requiredMonthlyIncome: 4000,
-    cppAnnual: 12000,
+    cppMonthly: 1000,
     cppStartAge: 65,
-    oasAnnual: 8000,
+    oasMonthly: 700,
     oasStartAge: 65,
     retirementTaxRate: 0.15,
   },

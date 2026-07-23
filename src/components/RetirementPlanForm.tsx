@@ -24,10 +24,10 @@ export function RetirementPlanForm({ value, onChange }: Props) {
           onChange={(v) => onChange({ retirementTaxRate: v })}
         />
         <CurrencyField
-          id="cppAnnual"
-          label="Expected CPP income (annual)"
-          value={value.cppAnnual}
-          onChange={(v) => onChange({ cppAnnual: v })}
+          id="cppMonthly"
+          label="Expected CPP income (monthly, pre-tax)"
+          value={value.cppMonthly}
+          onChange={(v) => onChange({ cppMonthly: v })}
         />
         <NumberField
           id="cppStartAge"
@@ -38,10 +38,10 @@ export function RetirementPlanForm({ value, onChange }: Props) {
           onChange={(v) => onChange({ cppStartAge: v })}
         />
         <CurrencyField
-          id="oasAnnual"
-          label="Expected OAS income (annual)"
-          value={value.oasAnnual}
-          onChange={(v) => onChange({ oasAnnual: v })}
+          id="oasMonthly"
+          label="Expected OAS income (monthly, pre-tax)"
+          value={value.oasMonthly}
+          onChange={(v) => onChange({ oasMonthly: v })}
         />
         <NumberField
           id="oasStartAge"

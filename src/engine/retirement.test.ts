@@ -26,6 +26,8 @@ describe('Retirement: the key correctness property — net cash delivered equals
     expect(r.taxPaid).toBeCloseTo(5000, 6)
     // THE property: after-tax cash delivered === the required gap.
     expect(r.netFromSavings).toBeCloseTo(45000, 6)
+    // Same percentage taken from each account: 50,000 / 200,000 = 25%.
+    expect(r.withdrawalPct).toBeCloseTo(0.25, 9)
   })
 
   it('holds the net === gap property for a lopsided 70/30 split too', () => {
@@ -93,25 +95,25 @@ describe('Retirement: shortfall when savings cannot cover the gap', () => {
   })
 })
 
-describe('Retirement: CPP and OAS switch on at their start ages', () => {
+describe('Retirement: CPP and OAS are entered monthly (pre-tax) and switch on at their start ages', () => {
   const plan: RetirementPlan = {
     requiredMonthlyIncome: 4000,
-    cppAnnual: 15000,
+    cppMonthly: 1250, // 15,000 / yr gross
     cppStartAge: 65,
-    oasAnnual: 8000,
+    oasMonthly: 500, // 6,000 / yr gross
     oasStartAge: 67,
     retirementTaxRate: 0.15,
   }
 
-  it('pays no CPP before 65 and full CPP from 65 on', () => {
+  it('pays no CPP before 65 and the full GROSS ANNUAL amount (monthly * 12) from 65 on', () => {
     expect(cppForAge(64, plan)).toBe(0)
-    expect(cppForAge(65, plan)).toBe(15000)
+    expect(cppForAge(65, plan)).toBe(15000) // 1,250 * 12
     expect(cppForAge(70, plan)).toBe(15000)
   })
 
-  it('pays no OAS before 67 and full OAS from 67 on', () => {
+  it('pays no OAS before 67 and the full GROSS ANNUAL amount from 67 on', () => {
     expect(oasForAge(66, plan)).toBe(0)
-    expect(oasForAge(67, plan)).toBe(8000)
+    expect(oasForAge(67, plan)).toBe(6000) // 500 * 12
   })
 })
 

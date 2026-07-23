@@ -44,13 +44,13 @@ export interface SavingsPlanSegment {
 export interface RetirementPlan {
   /** Required take-home income per month, after tax. */
   requiredMonthlyIncome: number
-  /** Annual CPP income (entered as after-tax). */
-  cppAnnual: number
+  /** CPP income per month, PRE-TAX. Taxed at retirementTaxRate like RRSP income. */
+  cppMonthly: number
   cppStartAge: number
-  /** Annual OAS income (entered as after-tax). */
-  oasAnnual: number
+  /** OAS income per month, PRE-TAX. Taxed at retirementTaxRate like RRSP income. */
+  oasMonthly: number
   oasStartAge: number
-  /** Flat tax rate applied to RRSP withdrawals in retirement. Default 0.15. */
+  /** Flat tax rate applied to RRSP withdrawals AND to CPP/OAS in retirement. Default 0.15. */
   retirementTaxRate: number
 }
 
@@ -85,13 +85,26 @@ export interface ForecastYear {
   tfsaContribution: number
   rrspWithdrawal: number
   tfsaWithdrawal: number
+  /**
+   * The percentage withdrawn from each account this year (same % from RRSP and
+   * TFSA). 0 when no withdrawal was needed. Surfaced so the eventual mandatory
+   * age-72 rule (which forces at least 5% of the RRSP) is easy to preview:
+   * years below 5% are where that rule would force extra withdrawals.
+   */
+  withdrawalPct: number
 
   // Retirement income breakdown (0 during accumulation).
+  /** Gross (pre-tax) annual CPP income received this year. */
   cpp: number
+  /** After-tax CPP income (cpp * (1 - retirementTaxRate)). */
+  cppAfterTax: number
+  /** Gross (pre-tax) annual OAS income received this year. */
   oas: number
+  /** After-tax OAS income (oas * (1 - retirementTaxRate)). */
+  oasAfterTax: number
   /** After-tax cash actually delivered to the saver from account withdrawals. */
   netFromSavings: number
-  /** Tax paid on RRSP withdrawals this year. */
+  /** Tax paid on RRSP withdrawals this year (does not include CPP/OAS tax). */
   taxPaid: number
   /**
    * True when accounts were exhausted and the required income could not be

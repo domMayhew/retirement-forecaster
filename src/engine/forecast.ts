@@ -94,6 +94,8 @@ export function computeAccumulationYear(
 export interface RetirementWithdrawalResult {
   rrspWithdrawal: number
   tfsaWithdrawal: number
+  /** Fraction withdrawn from each account (same % from both). 0 when none needed. */
+  withdrawalPct: number
   /** Tax paid on the RRSP portion of the withdrawal. */
   taxPaid: number
   /** After-tax cash delivered to the saver. Equals `gap` unless there is a shortfall. */
@@ -139,6 +141,7 @@ export function computeRetirementWithdrawal(
     return {
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
+      withdrawalPct: 0,
       taxPaid: 0,
       netFromSavings: 0,
       shortfall: false,
@@ -150,6 +153,7 @@ export function computeRetirementWithdrawal(
     return {
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
+      withdrawalPct: 0,
       taxPaid: 0,
       netFromSavings: 0,
       shortfall: true,
@@ -160,13 +164,14 @@ export function computeRetirementWithdrawal(
   const netTaxRate = rrspShare * retirementTaxRate
   const actualWithdrawal = gap / (1 - netTaxRate)
 
-  // Not enough saved to meet the gap: drain everything available.
+  // Not enough saved to meet the gap: drain everything available (100%).
   if (actualWithdrawal > total) {
     const taxPaid = startRRSP * retirementTaxRate
     const netFromSavings = startRRSP - taxPaid + startTFSA
     return {
       rrspWithdrawal: startRRSP,
       tfsaWithdrawal: startTFSA,
+      withdrawalPct: 1,
       taxPaid,
       netFromSavings,
       shortfall: true,
@@ -179,7 +184,14 @@ export function computeRetirementWithdrawal(
   const taxPaid = rrspWithdrawal * retirementTaxRate
   const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
 
-  return { rrspWithdrawal, tfsaWithdrawal, taxPaid, netFromSavings, shortfall: false }
+  return {
+    rrspWithdrawal,
+    tfsaWithdrawal,
+    withdrawalPct,
+    taxPaid,
+    netFromSavings,
+    shortfall: false,
+  }
 }
 
 // TODO(age-72-mandatory-withdrawal): Starting at age 72 there is a mandatory
@@ -192,14 +204,20 @@ export function computeRetirementWithdrawal(
 // RETIREMENT INCOME HELPERS
 // ---------------------------------------------------------------------------
 
-/** CPP is paid once age >= cppStartAge, otherwise 0. */
+/**
+ * CPP is paid once age >= cppStartAge, otherwise 0. Entered monthly; returned
+ * as the GROSS (pre-tax) ANNUAL amount (monthly * 12).
+ */
 export function cppForAge(age: number, plan: RetirementPlan): number {
-  return age >= plan.cppStartAge ? plan.cppAnnual : 0
+  return age >= plan.cppStartAge ? plan.cppMonthly * 12 : 0
 }
 
-/** OAS is paid once age >= oasStartAge, otherwise 0. */
+/**
+ * OAS is paid once age >= oasStartAge, otherwise 0. Entered monthly; returned
+ * as the GROSS (pre-tax) ANNUAL amount (monthly * 12).
+ */
 export function oasForAge(age: number, plan: RetirementPlan): number {
-  return age >= plan.oasStartAge ? plan.oasAnnual : 0
+  return age >= plan.oasStartAge ? plan.oasMonthly * 12 : 0
 }
 
 // ---------------------------------------------------------------------------
@@ -264,8 +282,11 @@ export function runForecast(input: ForecastInput): Forecast {
       tfsaContribution: year.tfsaContribution,
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
+      withdrawalPct: 0,
       cpp: 0,
+      cppAfterTax: 0,
       oas: 0,
+      oasAfterTax: 0,
       netFromSavings: 0,
       taxPaid: 0,
       shortfall: false,
@@ -273,12 +294,17 @@ export function runForecast(input: ForecastInput): Forecast {
   }
 
   // --- Retirement: retirementAge .. endAge (inclusive) -------------------
+  const taxRate = retirement.retirementTaxRate
   for (let age = retirementAge; age <= endAge; age++) {
+    // CPP/OAS are entered PRE-TAX and taxed at the retirement rate, so only
+    // their after-tax value counts toward the required (after-tax) income.
     const cpp = cppForAge(age, retirement)
     const oas = oasForAge(age, retirement)
-    const gap = requiredAnnualIncome - cpp - oas
+    const cppAfterTax = cpp * (1 - taxRate)
+    const oasAfterTax = oas * (1 - taxRate)
+    const gap = requiredAnnualIncome - cppAfterTax - oasAfterTax
 
-    const w = computeRetirementWithdrawal(rrsp, tfsa, gap, retirement.retirementTaxRate)
+    const w = computeRetirementWithdrawal(rrsp, tfsa, gap, taxRate)
 
     // Growth applies AFTER withdrawal (flow first, then grow).
     rrsp = (rrsp - w.rrspWithdrawal) * (1 + rateOfReturn)
@@ -294,8 +320,11 @@ export function runForecast(input: ForecastInput): Forecast {
       tfsaContribution: 0,
       rrspWithdrawal: w.rrspWithdrawal,
       tfsaWithdrawal: w.tfsaWithdrawal,
+      withdrawalPct: w.withdrawalPct,
       cpp,
+      cppAfterTax,
       oas,
+      oasAfterTax,
       netFromSavings: w.netFromSavings,
       taxPaid: w.taxPaid,
       shortfall: w.shortfall,
