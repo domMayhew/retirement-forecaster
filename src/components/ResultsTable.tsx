@@ -5,10 +5,12 @@ interface Props {
   forecast: Forecast
 }
 
-// The eventual (currently deferred) mandatory age-72 rule forces at least 5% of
-// the RRSP to be withdrawn each year. Retirement years below this threshold are
-// where that rule would force additional withdrawals, so we flag them.
+// The eventual (currently deferred) mandatory RRSP minimum forces at least 5%
+// of the RRSP to be withdrawn each year — but only from age 72 on. Retirement
+// years from 72 whose withdrawal falls below that threshold are where the rule
+// would force additional withdrawals, so we flag them.
 const MANDATORY_MIN_PCT = 0.05
+const MANDATORY_MIN_AGE = 72
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
@@ -22,7 +24,7 @@ function money(value: number): string {
 function belowMandatory(row: ForecastYear): boolean {
   return (
     row.phase === 'retirement' &&
-    (row.rrspWithdrawal > 0 || row.tfsaWithdrawal > 0) &&
+    row.age >= MANDATORY_MIN_AGE &&
     row.withdrawalPct < MANDATORY_MIN_PCT
   )
 }
@@ -44,8 +46,8 @@ export function ResultsTable({ forecast }: Props) {
     <section className="card">
       <h2>Projection</h2>
       <p className="table-legend">
-        <span className="swatch swatch-below" /> Withdrawal below the 5% RRSP
-        minimum — the (deferred) mandatory age-72 rule would force a larger
+        <span className="swatch swatch-below" /> Age 72+ withdrawal below the 5%
+        RRSP minimum — the (deferred) mandatory rule would force a larger
         withdrawal in these years.
         <span className="swatch swatch-shortfall" /> Shortfall — savings could
         not fully cover the required income.
