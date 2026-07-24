@@ -772,8 +772,8 @@ table {
   stroke: none;
 }
 
-/* Chart title row: heading + an optional show/hide toggle beside it. */
-.chart-title-row {
+/* Section title row: a card's heading + an optional show/hide toggle beside it. */
+.section-title-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -782,11 +782,11 @@ table {
   margin-bottom: 14px;
 }
 
-.chart-title-row h2 {
+.section-title-row h2 {
   margin-bottom: 0;
 }
 
-.chart-toggle {
+.section-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -796,7 +796,7 @@ table {
   cursor: pointer;
 }
 
-.chart-toggle input[type='checkbox'] {
+.section-toggle input[type='checkbox'] {
   accent-color: var(--accent);
 }
 

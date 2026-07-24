@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Forecast } from '../engine/types'
 import { formatCurrency } from '../utils/format'
 import { ageTicks } from '../utils/chart'
@@ -11,18 +10,7 @@ interface Props {
 // filled area, since it's the headline number) plus RRSP and TFSA as their
 // own lines so the two accounts can be told apart.
 export function SavingsChart({ forecast }: Props) {
-  const [showSavingYears, setShowSavingYears] = useState(false)
-
-  const hasRetirementYears = forecast.some((r) => r.phase === 'retirement')
-  // Default to retirement years only — that's usually the part worth
-  // studying — but fall back to everything if there's no retirement data to
-  // narrow down to, or the saver asks to see the saving years too.
-  const visible =
-    showSavingYears || !hasRetirementYears
-      ? forecast
-      : forecast.filter((r) => r.phase === 'retirement')
-
-  if (visible.length < 2) return null
+  if (forecast.length < 2) return null
 
   const width = 640
   const height = 260
@@ -30,8 +18,8 @@ export function SavingsChart({ forecast }: Props) {
   const innerW = width - pad.left - pad.right
   const innerH = height - pad.top - pad.bottom
 
-  const ages = visible.map((r) => r.age)
-  const totals = visible.map((r) => r.total)
+  const ages = forecast.map((r) => r.age)
+  const totals = forecast.map((r) => r.total)
   const minAge = Math.min(...ages)
   const maxAge = Math.max(...ages)
   const maxTotal = Math.max(...totals, 1)
@@ -41,7 +29,7 @@ export function SavingsChart({ forecast }: Props) {
   const y = (value: number) => pad.top + innerH - (value / maxTotal) * innerH
 
   const linePath = (series: (r: Forecast[number]) => number) =>
-    visible
+    forecast
       .map((r, i) => `${i === 0 ? 'M' : 'L'}${x(r.age).toFixed(1)},${y(series(r)).toFixed(1)}`)
       .join(' ')
 
@@ -63,19 +51,7 @@ export function SavingsChart({ forecast }: Props) {
 
   return (
     <section className="card">
-      <div className="chart-title-row">
-        <h2>Savings over time</h2>
-        {hasRetirementYears && (
-          <label className="chart-toggle">
-            <input
-              type="checkbox"
-              checked={showSavingYears}
-              onChange={(e) => setShowSavingYears(e.target.checked)}
-            />
-            Show saving years too
-          </label>
-        )}
-      </div>
+      <h2>Savings over time</h2>
       <ul className="chart-legend">
         <li>
           <span className="swatch swatch-total" /> Total —{' '}

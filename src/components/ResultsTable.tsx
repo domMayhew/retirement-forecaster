@@ -47,6 +47,7 @@ export function ResultsTable({
   onRecalculate,
 }: Props) {
   const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set())
+  const [showSavingYears, setShowSavingYears] = useState(false)
 
   function toggleGroup(key: ColumnGroup) {
     setHidden((prev) => {
@@ -73,9 +74,30 @@ export function ResultsTable({
   const overrideCount =
     Object.keys(contributionOverrides).length + Object.keys(withdrawalOverrides).length
 
+  const hasRetirementYears = forecast.some((r) => r.phase === 'retirement')
+  // Default to retirement years only — the accumulation years can be dozens
+  // of largely uneventful rows — but fall back to everything if there's no
+  // retirement data to narrow down to, or the saver asks to see them too.
+  const visibleRows =
+    showSavingYears || !hasRetirementYears
+      ? forecast
+      : forecast.filter((r) => r.phase === 'retirement')
+
   return (
     <section className="card">
-      <h2>Projection</h2>
+      <div className="section-title-row">
+        <h2>Projection</h2>
+        {hasRetirementYears && (
+          <label className="section-toggle">
+            <input
+              type="checkbox"
+              checked={showSavingYears}
+              onChange={(e) => setShowSavingYears(e.target.checked)}
+            />
+            Show saving years too
+          </label>
+        )}
+      </div>
       <div className="column-toggles" role="group" aria-label="Show/hide table columns">
         <span className="column-toggles-label">Show:</span>
         {COLUMN_GROUPS.map((group) => (
@@ -178,7 +200,7 @@ export function ResultsTable({
             </tr>
           </thead>
           <tbody>
-            {forecast.map((row) => {
+            {visibleRows.map((row) => {
               const forced = row.forcedMinimumWithdrawal
               const classes = [
                 row.shortfall ? 'row-shortfall' : '',
