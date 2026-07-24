@@ -635,14 +635,42 @@ describe('runForecast: averageReturnToDate tracks the running average of applied
   })
 
   it("is NOT guaranteed to equal the assumed average — a finite sampled sequence can land away from it", () => {
-    // A real property of the model, not a bug: pick a seed/scenario where the
-    // final average-to-date provably differs from the 10% assumed average.
+    // A real property of the model, not a bug (the sampling is unbiased —
+    // see variability.test.ts — but unbiased still means "averages out over
+    // many years", not "every short run hits the target"): pick a
+    // seed/scenario where the final average-to-date provably differs from
+    // the 10% assumed average.
     const input = baseInput()
     input.bestYearReturn = 0.3
     input.worstYearReturn = -0.2
-    input.seed = 123
+    input.seed = 7
     const rows = runForecast(input)
     const last = rows[rows.length - 1]
-    expect(last.averageReturnToDate).not.toBeCloseTo(0.1, 3)
+    expect(last.averageReturnToDate).not.toBeCloseTo(0.1, 1)
+  })
+
+  it('over a realistic 65-year horizon with asymmetric bounds, converges close to the assumed average across many seeds', () => {
+    // Regression test for a real bug: the original variability model scaled
+    // a symmetric variate by different up/down factors, which is unbiased
+    // ONLY when best/worst are symmetric around the average. Here the
+    // downside spread (20pp) is bigger than the upside (15pp) — exactly the
+    // asymmetric shape that used to systematically drag the long-run
+    // average down below the stated 5%. A long horizon averaged across many
+    // seeds should land close to it now.
+    const finalAverages = Array.from({ length: 30 }, (_, i) => {
+      const input = baseInput()
+      input.initial.currentAge = 35
+      input.initial.retirementAge = 65
+      input.endAge = 100
+      input.rateOfReturn = 0.05
+      input.bestYearReturn = 0.2
+      input.worstYearReturn = -0.15
+      input.seed = i + 1
+      const rows = runForecast(input)
+      return rows[rows.length - 1].averageReturnToDate
+    })
+    const meanAcrossSeeds =
+      finalAverages.reduce((a, b) => a + b, 0) / finalAverages.length
+    expect(meanAcrossSeeds).toBeCloseTo(0.05, 2)
   })
 })

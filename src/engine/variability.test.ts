@@ -64,6 +64,31 @@ describe('yearlyReturn: one pseudo-random annual return', () => {
     // more than half the samples should land in the inner half of the range.
     expect(withinHalfRange / samples.length).toBeGreaterThan(0.5)
   })
+
+  it('averages out to the stated average over many draws even with SYMMETRIC bounds', () => {
+    const rng = mulberry32(555)
+    const samples = Array.from({ length: 200000 }, () => yearlyReturn(rng, 0.05, -0.25, 0.35))
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length
+    expect(mean).toBeCloseTo(0.05, 2)
+  })
+
+  it('averages out to the stated average over many draws even with heavily ASYMMETRIC bounds', () => {
+    // This is the case a naive symmetric-variate scaling gets wrong: the
+    // downside spread (20pp) is much bigger than the upside spread (5pp), so
+    // a biased model would systematically pull the long-run mean down below
+    // the stated 5% average. A correct model still converges on 5%.
+    const rng = mulberry32(777)
+    const samples = Array.from({ length: 200000 }, () => yearlyReturn(rng, 0.05, -0.2, 0.1))
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length
+    expect(mean).toBeCloseTo(0.05, 2)
+  })
+
+  it('averages out to the stated average when the asymmetry runs the other way (bigger upside than downside)', () => {
+    const rng = mulberry32(888)
+    const samples = Array.from({ length: 200000 }, () => yearlyReturn(rng, 0.05, -0.05, 0.4))
+    const mean = samples.reduce((a, b) => a + b, 0) / samples.length
+    expect(mean).toBeCloseTo(0.05, 2)
+  })
 })
 
 describe('yearlyReturns: a reproducible sequence', () => {
