@@ -100,8 +100,22 @@ export function PercentField({ label, value, onChange, min, max, step, id }: Bas
   )
 }
 
-/** Bare numeric <input> without its own <label> — used inside affixed layouts. */
-function BareNumberInput({ value, onChange, min, max, step, id }: BaseProps) {
+/**
+ * Bare numeric <input> without its own <label> — used inside affixed layouts
+ * and table cells. Buffers the raw typed string so the field can be emptied
+ * (or hold a transient "-"/".") without React snapping the DOM value back to
+ * the last-committed number on every keystroke; onBlur re-syncs the buffer to
+ * the canonical value.
+ */
+export function BareNumberInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  id,
+  ariaLabel,
+}: BaseProps & { ariaLabel?: string }) {
   const [buffer, setBuffer] = useState(String(value))
 
   useEffect(() => {
@@ -118,6 +132,7 @@ function BareNumberInput({ value, onChange, min, max, step, id }: BaseProps) {
       max={max}
       step={step}
       value={buffer}
+      aria-label={ariaLabel}
       onChange={(e) => {
         setBuffer(e.target.value)
         const n = parseFloat(e.target.value)

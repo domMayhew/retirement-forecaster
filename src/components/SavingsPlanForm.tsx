@@ -1,5 +1,6 @@
 import type { SavingsPlanSegment } from '../engine/types'
 import { rateToPercent, percentToRate } from '../utils/format'
+import { BareNumberInput } from './fields'
 
 interface Props {
   segments: SavingsPlanSegment[]
@@ -73,61 +74,51 @@ export function SavingsPlanForm({ segments, retirementAge, onChange }: Props) {
                 <td>
                   <div className="cell-affix">
                     <span className="affix">$</span>
-                    <input
-                      type="number"
+                    <BareNumberInput
+                      label=""
                       min={0}
                       step={50}
                       value={seg.monthlyRRSP}
-                      aria-label={`Row ${i + 1} monthly RRSP`}
-                      onChange={(e) =>
-                        update(i, { monthlyRRSP: numOr(e.target.value, seg.monthlyRRSP) })
-                      }
+                      ariaLabel={`Row ${i + 1} monthly RRSP`}
+                      onChange={(v) => update(i, { monthlyRRSP: v })}
                     />
                   </div>
                 </td>
                 <td>
                   <div className="cell-affix">
                     <span className="affix">$</span>
-                    <input
-                      type="number"
+                    <BareNumberInput
+                      label=""
                       min={0}
                       step={50}
                       value={seg.monthlyTFSA}
-                      aria-label={`Row ${i + 1} monthly TFSA`}
-                      onChange={(e) =>
-                        update(i, { monthlyTFSA: numOr(e.target.value, seg.monthlyTFSA) })
-                      }
+                      ariaLabel={`Row ${i + 1} monthly TFSA`}
+                      onChange={(v) => update(i, { monthlyTFSA: v })}
                     />
                   </div>
                 </td>
                 <td>
                   <div className="cell-affix">
-                    <input
-                      type="number"
+                    <BareNumberInput
+                      label=""
                       min={0}
                       max={100}
                       step={5}
                       value={rateToPercent(seg.refundReinvestFraction)}
-                      aria-label={`Row ${i + 1} refund reinvest percent`}
-                      onChange={(e) =>
-                        update(i, {
-                          refundReinvestFraction: percentToRate(
-                            numOr(e.target.value, rateToPercent(seg.refundReinvestFraction)),
-                          ),
-                        })
-                      }
+                      ariaLabel={`Row ${i + 1} refund reinvest percent`}
+                      onChange={(v) => update(i, { refundReinvestFraction: percentToRate(v) })}
                     />
                     <span className="affix affix-suffix">%</span>
                   </div>
                 </td>
                 <td>
-                  <input
-                    type="number"
+                  <BareNumberInput
+                    label=""
                     min={0}
                     max={130}
                     value={seg.untilAge}
-                    aria-label={`Row ${i + 1} until age`}
-                    onChange={(e) => update(i, { untilAge: numOr(e.target.value, seg.untilAge) })}
+                    ariaLabel={`Row ${i + 1} until age`}
+                    onChange={(v) => update(i, { untilAge: v })}
                   />
                 </td>
                 <td>
@@ -160,9 +151,4 @@ export function SavingsPlanForm({ segments, retirementAge, onChange }: Props) {
       </button>
     </section>
   )
-}
-
-function numOr(raw: string, fallback: number): number {
-  const n = parseFloat(raw)
-  return Number.isFinite(n) ? n : fallback
 }
