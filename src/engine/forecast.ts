@@ -306,11 +306,15 @@ export function runForecast(input: ForecastInput): Forecast {
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
       withdrawalPct: 0,
+      rrspWithdrawalPct: 0,
+      tfsaWithdrawalPct: 0,
       cpp: 0,
       cppAfterTax: 0,
       oas: 0,
       oasAfterTax: 0,
       netFromSavings: 0,
+      incomeFromSavingsPct: 0,
+      incomeFromCppOasPct: 0,
       taxPaid: 0,
       shortfall: false,
       rrspRoom,
@@ -328,11 +332,15 @@ export function runForecast(input: ForecastInput): Forecast {
     const oasAfterTax = oas * (1 - taxRate)
     const gap = requiredAnnualIncome - cppAfterTax - oasAfterTax
 
-    const w = computeRetirementWithdrawal(rrsp, tfsa, gap, taxRate)
+    const startRRSP = rrsp
+    const startTFSA = tfsa
+    const w = computeRetirementWithdrawal(startRRSP, startTFSA, gap, taxRate)
 
     // Growth applies AFTER withdrawal (flow first, then grow).
-    rrsp = (rrsp - w.rrspWithdrawal) * (1 + rateOfReturn)
-    tfsa = (tfsa - w.tfsaWithdrawal) * (1 + rateOfReturn)
+    rrsp = (startRRSP - w.rrspWithdrawal) * (1 + rateOfReturn)
+    tfsa = (startTFSA - w.tfsaWithdrawal) * (1 + rateOfReturn)
+
+    const totalIncome = w.netFromSavings + cppAfterTax + oasAfterTax
 
     rows.push({
       age,
@@ -345,11 +353,15 @@ export function runForecast(input: ForecastInput): Forecast {
       rrspWithdrawal: w.rrspWithdrawal,
       tfsaWithdrawal: w.tfsaWithdrawal,
       withdrawalPct: w.withdrawalPct,
+      rrspWithdrawalPct: startRRSP > 0 ? w.rrspWithdrawal / startRRSP : 0,
+      tfsaWithdrawalPct: startTFSA > 0 ? w.tfsaWithdrawal / startTFSA : 0,
       cpp,
       cppAfterTax,
       oas,
       oasAfterTax,
       netFromSavings: w.netFromSavings,
+      incomeFromSavingsPct: totalIncome > 0 ? w.netFromSavings / totalIncome : 0,
+      incomeFromCppOasPct: totalIncome > 0 ? (cppAfterTax + oasAfterTax) / totalIncome : 0,
       taxPaid: w.taxPaid,
       shortfall: w.shortfall,
       // No earned income assumed in retirement, so room neither accrues nor

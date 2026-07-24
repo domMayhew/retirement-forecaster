@@ -119,6 +119,48 @@ describe('runForecast: CPP/OAS are pre-tax and reduce the amount drawn from savi
   })
 })
 
+describe('runForecast: per-account withdrawal % and income mix', () => {
+  it('splits the same percentage from RRSP and TFSA when no minimum forces otherwise', () => {
+    // From the base scenario: age 65 starts at 110,000/110,000, withdraws
+    // 25,000/25,000 -> 22.7272...% of each account, matching the blended
+    // withdrawalPct exactly since the split is 50/50.
+    const rows = runForecast(baseInput())
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.rrspWithdrawalPct).toBeCloseTo(y65.withdrawalPct, 9)
+    expect(y65.tfsaWithdrawalPct).toBeCloseTo(y65.withdrawalPct, 9)
+    expect(y65.rrspWithdrawalPct).toBeCloseTo(25000 / 110000, 9)
+  })
+
+  it('is 0/0 during accumulation (nothing withdrawn yet)', () => {
+    const rows = runForecast(baseInput())
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrspWithdrawalPct).toBe(0)
+    expect(y64.tfsaWithdrawalPct).toBe(0)
+    expect(y64.incomeFromSavingsPct).toBe(0)
+    expect(y64.incomeFromCppOasPct).toBe(0)
+  })
+
+  it('attributes 100% of income to savings when there is no CPP/OAS', () => {
+    const rows = runForecast(baseInput())
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.incomeFromSavingsPct).toBeCloseTo(1, 9)
+    expect(y65.incomeFromCppOasPct).toBeCloseTo(0, 9)
+  })
+
+  it('splits income mix between savings and CPP/OAS proportionally', () => {
+    // $12,000 after-tax CPP against the $45,000 need -> 33,000 from savings.
+    // Income mix: 33,000/45,000 from savings, 12,000/45,000 from CPP.
+    const input = baseInput()
+    input.retirement.cppMonthly = 1250
+    input.retirement.cppStartAge = 65
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.incomeFromSavingsPct).toBeCloseTo(33000 / 45000, 6)
+    expect(y65.incomeFromCppOasPct).toBeCloseTo(12000 / 45000, 6)
+    expect(y65.incomeFromSavingsPct + y65.incomeFromCppOasPct).toBeCloseTo(1, 9)
+  })
+})
+
 describe('runForecast: ordered savings-plan segments switch at their untilAge', () => {
   it('applies segment 1 through its untilAge, then segment 2 for later years', () => {
     // Ages 40,41,42 are accumulation (retirementAge 43). incomeTaxRate 0 and

@@ -21,6 +21,11 @@ function money(value: number): string {
   return value === 0 ? '—' : formatCurrency(value)
 }
 
+/** Percent, or an em dash when nothing happened this row (so 0% isn't confused with N/A). */
+function pctOrDash(value: number, applicable: boolean): string {
+  return applicable ? pct(value) : '—'
+}
+
 function belowMandatory(row: ForecastYear): boolean {
   return (
     row.phase === 'retirement' &&
@@ -59,11 +64,12 @@ export function ResultsTable({ forecast }: Props) {
               <th rowSpan={2}>Age</th>
               <th rowSpan={2}>Phase</th>
               <th className="num" colSpan={3}>Balances (end of year)</th>
-              <th className="num" rowSpan={2}>Withdraw&nbsp;%</th>
-              <th className="num" colSpan={2}>RRSP withdrawal</th>
-              <th className="num" rowSpan={2}>TFSA withdrawal</th>
+              <th className="num" colSpan={3}>RRSP withdrawal</th>
+              <th className="num" colSpan={2}>TFSA withdrawal</th>
+              <th className="num" rowSpan={2}>Total&nbsp;%<br />withdrawn</th>
               <th className="num" colSpan={2}>CPP</th>
               <th className="num" colSpan={2}>OAS</th>
+              <th className="num" colSpan={2}>Income mix</th>
             </tr>
             <tr>
               <th className="num sub">RRSP</th>
@@ -71,10 +77,15 @@ export function ResultsTable({ forecast }: Props) {
               <th className="num sub">Total</th>
               <th className="num sub">Gross</th>
               <th className="num sub">After tax</th>
+              <th className="num sub">% of RRSP</th>
+              <th className="num sub">Amount</th>
+              <th className="num sub">% of TFSA</th>
               <th className="num sub">Gross</th>
               <th className="num sub">After tax</th>
               <th className="num sub">Gross</th>
               <th className="num sub">After tax</th>
+              <th className="num sub">From savings</th>
+              <th className="num sub">From CPP/OAS</th>
             </tr>
           </thead>
           <tbody>
@@ -87,6 +98,7 @@ export function ResultsTable({ forecast }: Props) {
                 .filter(Boolean)
                 .join(' ')
               const rrspNet = row.rrspWithdrawal - row.taxPaid
+              const hasIncome = row.netFromSavings > 0 || row.cppAfterTax > 0 || row.oasAfterTax > 0
               return (
                 <tr key={row.age} className={classes || undefined}>
                   <td>{row.age}</td>
@@ -99,19 +111,20 @@ export function ResultsTable({ forecast }: Props) {
                   <td className="num">{formatCurrency(row.rrsp)}</td>
                   <td className="num">{formatCurrency(row.tfsa)}</td>
                   <td className="num total">{formatCurrency(row.total)}</td>
-                  <td className={`num${below ? ' cell-below-min' : ''}`}>
-                    {row.phase === 'retirement' &&
-                    (row.rrspWithdrawal > 0 || row.tfsaWithdrawal > 0)
-                      ? pct(row.withdrawalPct)
-                      : '—'}
-                  </td>
                   <td className="num">{money(row.rrspWithdrawal)}</td>
                   <td className="num">{money(rrspNet)}</td>
+                  <td className="num">{pctOrDash(row.rrspWithdrawalPct, row.rrspWithdrawal > 0)}</td>
                   <td className="num">{money(row.tfsaWithdrawal)}</td>
+                  <td className="num">{pctOrDash(row.tfsaWithdrawalPct, row.tfsaWithdrawal > 0)}</td>
+                  <td className={`num${below ? ' cell-below-min' : ''}`}>
+                    {pctOrDash(row.withdrawalPct, row.rrspWithdrawal > 0 || row.tfsaWithdrawal > 0)}
+                  </td>
                   <td className="num">{money(row.cpp)}</td>
                   <td className="num">{money(row.cppAfterTax)}</td>
                   <td className="num">{money(row.oas)}</td>
                   <td className="num">{money(row.oasAfterTax)}</td>
+                  <td className="num">{pctOrDash(row.incomeFromSavingsPct, hasIncome)}</td>
+                  <td className="num">{pctOrDash(row.incomeFromCppOasPct, hasIncome)}</td>
                 </tr>
               )
             })}

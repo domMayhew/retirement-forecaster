@@ -92,12 +92,16 @@ export interface ForecastYear {
   rrspWithdrawal: number
   tfsaWithdrawal: number
   /**
-   * The percentage withdrawn from each account this year (same % from RRSP and
-   * TFSA). 0 when no withdrawal was needed. Surfaced so the eventual mandatory
+   * The percentage withdrawn from the combined RRSP+TFSA balance this year.
+   * 0 when no withdrawal was needed. Surfaced so the eventual mandatory
    * age-72 rule (which forces at least 5% of the RRSP) is easy to preview:
    * years below 5% are where that rule would force extra withdrawals.
    */
   withdrawalPct: number
+  /** Fraction of the START-of-year RRSP balance withdrawn this year. 0 if the RRSP was empty. */
+  rrspWithdrawalPct: number
+  /** Fraction of the START-of-year TFSA balance withdrawn this year. 0 if the TFSA was empty. */
+  tfsaWithdrawalPct: number
 
   // Retirement income breakdown (0 during accumulation).
   /** Gross (pre-tax) annual CPP income received this year. */
@@ -110,6 +114,14 @@ export interface ForecastYear {
   oasAfterTax: number
   /** After-tax cash actually delivered to the saver from account withdrawals. */
   netFromSavings: number
+  /**
+   * Fraction of this year's total after-tax retirement income that came from
+   * savings withdrawals rather than CPP/OAS. 0 during accumulation and in any
+   * retirement year with no income at all.
+   */
+  incomeFromSavingsPct: number
+  /** Fraction of this year's total after-tax retirement income that came from CPP + OAS. */
+  incomeFromCppOasPct: number
   /** Tax paid on RRSP withdrawals this year (does not include CPP/OAS tax). */
   taxPaid: number
   /**
