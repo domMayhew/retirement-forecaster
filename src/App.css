@@ -646,6 +646,39 @@ table {
   font-weight: 600;
 }
 
+/* Column show/hide toggles above the projection table. */
+.column-toggles {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.column-toggles-label {
+  font-size: 13px;
+  color: var(--text);
+  margin-right: 2px;
+}
+
+.col-toggle {
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.col-toggle.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+  font-weight: 500;
+}
+
 /* Legend above the projection table. */
 .table-legend {
   font-size: 12px;
