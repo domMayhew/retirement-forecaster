@@ -93,6 +93,14 @@ export interface ForecastInput {
   /** Age the projection runs to (inclusive). Default 100. */
   endAge: number
   /**
+   * What happens to RRSP money the mandatory RRIF minimum forced out but the
+   * plan didn't actually need to spend. True (default): redirect it into the
+   * TFSA, where it keeps compounding tax-free. False: hand it to the saver as
+   * extra spending money for that year — untracked beyond inflating that
+   * year's net income.
+   */
+  reinvestForcedWithdrawals: boolean
+  /**
    * Per-age manual contribution overrides, keyed by age. Lets a saver hand-edit
    * a specific year's RRSP/TFSA contribution in the results table instead of
    * only through the savings-plan segments. Empty when the plan has no

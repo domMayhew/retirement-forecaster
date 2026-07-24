@@ -43,6 +43,7 @@ function baseInput(over: Partial<ForecastInput> = {}): ForecastInput {
     },
     rateOfReturn: 0.05,
     endAge: 90,
+    reinvestForcedWithdrawals: true,
     contributionOverrides: {},
     withdrawalOverrides: {},
     ...over,

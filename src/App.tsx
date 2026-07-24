@@ -254,8 +254,12 @@ function App() {
           <GlobalAssumptionsForm
             rateOfReturn={rateOfReturn}
             endAge={input.endAge}
+            reinvestForcedWithdrawals={input.reinvestForcedWithdrawals}
             onRateChange={changeRateOfReturn}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
+            onReinvestForcedWithdrawalsChange={(reinvestForcedWithdrawals) =>
+              setInput((prev) => ({ ...prev, reinvestForcedWithdrawals }))
+            }
           />
           <ResultsSummary forecast={forecast} input={effectiveInput} />
           <SavingsChart forecast={forecast} />

@@ -268,6 +268,14 @@ export function rrifMinimumFactor(age: number): number {
 export interface RRIFAdjustedWithdrawal extends RetirementWithdrawalResult {
   /** True when the prescribed minimum forced a larger RRSP withdrawal than the plan otherwise needed. */
   forcedMinimum: boolean
+  /**
+   * The after-tax portion of the forced RRSP withdrawal that couldn't be
+   * absorbed by reducing the TFSA withdrawal — money that had to come out of
+   * the RRSP but that the plan didn't actually need to spend. 0 unless
+   * forcedMinimum is true and the surplus exceeds the whole TFSA withdrawal.
+   * Callers decide what to do with it (see `reinvestForcedWithdrawals`).
+   */
+  surplus: number
 }
 
 /**
@@ -277,7 +285,10 @@ export interface RRIFAdjustedWithdrawal extends RetirementWithdrawalResult {
  * saver still needed only the original gap, so money that must now come out
  * of the RRSP is money that no longer needs to come out of the TFSA. If the
  * surplus exceeds the whole TFSA withdrawal, the TFSA share drops to 0 and
- * the saver simply receives more after-tax income than they asked for.
+ * `netFromSavings` here still counts the whole thing as delivered cash — the
+ * `surplus` field reports how much of that was actually unneeded, so
+ * `runForecast` can redirect it instead of paying it out, per
+ * `reinvestForcedWithdrawals`.
  */
 export function applyRRIFMinimum(
   base: RetirementWithdrawalResult,
@@ -288,12 +299,13 @@ export function applyRRIFMinimum(
 ): RRIFAdjustedWithdrawal {
   const minRRSPWithdrawal = startRRSP * rrifMinimumFactor(age)
   if (base.rrspWithdrawal >= minRRSPWithdrawal) {
-    return { ...base, forcedMinimum: false }
+    return { ...base, forcedMinimum: false, surplus: 0 }
   }
 
   const rrspWithdrawal = Math.min(minRRSPWithdrawal, startRRSP)
   const extraAfterTax = (rrspWithdrawal - base.rrspWithdrawal) * (1 - retirementTaxRate)
   const tfsaWithdrawal = Math.max(0, base.tfsaWithdrawal - extraAfterTax)
+  const surplus = Math.max(0, extraAfterTax - base.tfsaWithdrawal)
 
   const taxPaid = rrspWithdrawal * retirementTaxRate
   const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
@@ -310,6 +322,7 @@ export function applyRRIFMinimum(
     // it isn't a shortfall — that only means the accounts ran out entirely.
     shortfall: base.shortfall,
     forcedMinimum: true,
+    surplus,
   }
 }
 
@@ -460,14 +473,34 @@ export function runForecast(input: ForecastInput): Forecast {
       override?.tfsaWithdrawal !== undefined
         ? Math.min(Math.max(override.tfsaWithdrawal, 0), startTFSA)
         : adjusted.tfsaWithdrawal
+
+    // Money the RRIF minimum forced out of the RRSP that the plan didn't
+    // actually need to spend. A manual override for this age represents the
+    // saver's explicit intent for the year's flows, so it takes precedence
+    // over redirecting anything.
+    const overridden = override?.rrspWithdrawal !== undefined || override?.tfsaWithdrawal !== undefined
+    const reinvest = !overridden && input.reinvestForcedWithdrawals && adjusted.forcedMinimum
+    const reinvestedSurplus = reinvest ? adjusted.surplus : 0
+
     const taxPaid = rrspWithdrawal * taxRate
-    const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
+    // When reinvesting, use the pre-forcing "needed" net cash directly rather
+    // than the full withdrawal minus the surplus: at extreme rates/balances
+    // both those terms can run into the quadrillions while their difference
+    // is a modest, everyday number, and floating-point subtraction of two
+    // huge near-equal values loses precision fast enough to misfire the
+    // shortfall check. `needed.netFromSavings` was computed directly at the
+    // gap's own (small) scale, so it's exact where the subtraction isn't.
+    const netFromSavings = reinvest
+      ? needed.netFromSavings
+      : rrspWithdrawal - taxPaid + tfsaWithdrawal
     const startTotal = startRRSP + startTFSA
     const withdrawalPct = startTotal > 0 ? (rrspWithdrawal + tfsaWithdrawal) / startTotal : 0
 
-    // Growth applies AFTER withdrawal (flow first, then grow).
+    // Growth applies AFTER withdrawal (flow first, then grow). Any
+    // reinvested surplus flows back in as a TFSA contribution instead of
+    // reaching the saver as spendable cash.
     rrsp = (startRRSP - rrspWithdrawal) * (1 + rateOfReturn)
-    tfsa = (startTFSA - tfsaWithdrawal) * (1 + rateOfReturn)
+    tfsa = (startTFSA - tfsaWithdrawal + reinvestedSurplus) * (1 + rateOfReturn)
 
     const totalIncome = netFromSavings + cppAfterTax + oasAfterTax
     // A cent of float slop shouldn't read as a shortfall.

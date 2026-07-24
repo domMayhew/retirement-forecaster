@@ -823,6 +823,10 @@ table {
   cursor: pointer;
 }
 
+.forced-withdrawal-toggle {
+  margin-top: 16px;
+}
+
 .section-toggle input[type='checkbox'] {
   accent-color: var(--accent);
 }

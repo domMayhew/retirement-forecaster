@@ -53,6 +53,7 @@ function baseInput(): ForecastInput {
     },
     rateOfReturn: 0.10,
     endAge: 66,
+    reinvestForcedWithdrawals: true,
     contributionOverrides: {},
     withdrawalOverrides: {},
   }
@@ -318,6 +319,7 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
       },
       rateOfReturn: 0,
       endAge: 43,
+      reinvestForcedWithdrawals: true,
       contributionOverrides: {},
       withdrawalOverrides: {},
     }
@@ -358,6 +360,117 @@ describe('runForecast: mandatory RRIF minimum forces extra RRSP withdrawal from 
   it('never forces a withdrawal before age 72', () => {
     const rows = runForecast(baseInput())
     expect(rows.every((r) => !r.forcedMinimumWithdrawal)).toBe(true)
+  })
+})
+
+describe('runForecast: reinvestForcedWithdrawals decides where an unneeded forced RRSP withdrawal goes', () => {
+  // A single retirement year at 95 (flat 20% RRIF minimum), with a huge RRSP,
+  // a nearly-empty TFSA, and a tiny income need — the mandatory minimum forces
+  // far more out of the RRSP than the plan needs to spend. rateOfReturn: 0
+  // keeps the numbers exact so the two settings can be compared precisely.
+  function forcedSurplusInput(reinvestForcedWithdrawals: boolean): ForecastInput {
+    return {
+      initial: {
+        currentAge: 95,
+        currentRRSP: 1000000,
+        currentTFSA: 5000,
+        currentIncome: 0,
+        retirementAge: 95,
+        incomeTaxRate: 0.25,
+        currentRRSPRoom: 0,
+      },
+      savingsPlan: [seg({ untilAge: 95 })],
+      retirement: {
+        requiredMonthlyIncome: 1000 / 12,
+        cppMonthly: 0,
+        cppStartAge: 200,
+        oasMonthly: 0,
+        oasStartAge: 200,
+        retirementTaxRate: 0.15,
+      },
+      rateOfReturn: 0,
+      endAge: 95,
+      reinvestForcedWithdrawals,
+      contributionOverrides: {},
+      withdrawalOverrides: {},
+    }
+  }
+
+  it('by default, redirects the unneeded surplus into the TFSA instead of paying it out', () => {
+    const rows = runForecast(forcedSurplusInput(true))
+    const y95 = rows.find((r) => r.age === 95)!
+    expect(y95.forcedMinimumWithdrawal).toBe(true)
+    // The saver nets only what they needed — the surplus didn't inflate income.
+    expect(y95.netFromSavings).toBeCloseTo(1000, 2)
+    expect(y95.shortfall).toBe(false)
+    // ...and the rest landed in the TFSA instead (up from its starting 5,000).
+    expect(y95.tfsa).toBeGreaterThan(100000)
+  })
+
+  it('set to spend it, pays the whole forced withdrawal out as extra income instead', () => {
+    const rows = runForecast(forcedSurplusInput(false))
+    const y95 = rows.find((r) => r.age === 95)!
+    expect(y95.forcedMinimumWithdrawal).toBe(true)
+    // All the forced cash is delivered as spendable income, far more than asked for.
+    expect(y95.netFromSavings).toBeGreaterThan(100000)
+    // ...and the TFSA is untouched by it (still just its own starting balance).
+    expect(y95.tfsa).toBeCloseTo(5000, 2)
+  })
+
+  it('conserves total wealth either way — reinvesting just moves the surplus, not the amount', () => {
+    const reinvested = runForecast(forcedSurplusInput(true)).find((r) => r.age === 95)!
+    const spent = runForecast(forcedSurplusInput(false)).find((r) => r.age === 95)!
+    expect(reinvested.netFromSavings + reinvested.tfsa).toBeCloseTo(
+      spent.netFromSavings + spent.tfsa,
+      6,
+    )
+  })
+
+  it('a manual override for the year skips reinvestment entirely, since it represents explicit intent', () => {
+    const input = forcedSurplusInput(true)
+    input.withdrawalOverrides = { 95: { rrspWithdrawal: 200000 } }
+    const rows = runForecast(input)
+    const y95 = rows.find((r) => r.age === 95)!
+    expect(y95.rrspWithdrawal).toBe(200000)
+    // No redirection happened — the override's implied cash is simply delivered.
+    expect(y95.netFromSavings).toBeGreaterThan(100000)
+    expect(y95.tfsa).toBeCloseTo(5000, 2)
+  })
+
+  it("doesn't misfire a shortfall from float rounding when the forced withdrawal dwarfs the actual need", () => {
+    // At an extreme (unrealistic) compounding rate over a long horizon, the
+    // forced RRSP withdrawal and the reinvested surplus both run into the
+    // quadrillions while the saver's real need stays a modest four-figure
+    // sum. Computing net cash as "huge minus almost-as-huge" loses enough
+    // precision to dip a cent or two below the requirement and wrongly flag
+    // a shortfall — this plan very much has enough, so it shouldn't.
+    const input: ForecastInput = {
+      initial: {
+        currentAge: 35,
+        currentRRSP: 900000,
+        currentTFSA: 5000,
+        currentIncome: 90000,
+        retirementAge: 65,
+        incomeTaxRate: 0.25,
+        currentRRSPRoom: 40000,
+      },
+      savingsPlan: [seg({ monthlyRRSP: 500, monthlyTFSA: 500, untilAge: 65 })],
+      retirement: {
+        requiredMonthlyIncome: 4000,
+        cppMonthly: 1000,
+        cppStartAge: 65,
+        oasMonthly: 700,
+        oasStartAge: 65,
+        retirementTaxRate: 0.15,
+      },
+      rateOfReturn: 0.5,
+      endAge: 100,
+      reinvestForcedWithdrawals: true,
+      contributionOverrides: {},
+      withdrawalOverrides: {},
+    }
+    const rows = runForecast(input)
+    expect(rows.some((r) => r.shortfall)).toBe(false)
   })
 })
 

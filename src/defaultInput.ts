@@ -33,6 +33,7 @@ export const DEFAULT_INPUT: ForecastInput = {
   },
   rateOfReturn: 0.05,
   endAge: 100,
+  reinvestForcedWithdrawals: true,
   contributionOverrides: {},
   withdrawalOverrides: {},
 }

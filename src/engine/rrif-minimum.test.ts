@@ -39,6 +39,7 @@ describe('applyRRIFMinimum: leaves the withdrawal alone when it already clears t
     expect(result.forcedMinimum).toBe(false)
     expect(result.rrspWithdrawal).toBeCloseTo(base.rrspWithdrawal, 6)
     expect(result.tfsaWithdrawal).toBeCloseTo(base.tfsaWithdrawal, 6)
+    expect(result.surplus).toBe(0)
   })
 })
 
@@ -66,6 +67,11 @@ describe('applyRRIFMinimum: forces the RRSP up and reduces the TFSA to compensat
     // The saver still nets at least the original need — forcing the
     // minimum never leaves them with less than they asked for.
     expect(result.netFromSavings).toBeGreaterThanOrEqual(base.netFromSavings - 1e-6)
+
+    // The surplus is the part of the forced withdrawal that couldn't be
+    // absorbed by reducing the TFSA withdrawal — it's what a caller would
+    // redirect (reinvest) instead of paying out.
+    expect(result.surplus).toBeCloseTo(Math.max(0, extraAfterTax - base.tfsaWithdrawal), 2)
   })
 
   it('zeroes the TFSA withdrawal and still delivers extra cash when the forced surplus exceeds it', () => {
@@ -83,6 +89,10 @@ describe('applyRRIFMinimum: forces the RRSP up and reduces the TFSA to compensat
     // Way more after-tax cash than the saver needed, but that's the point —
     // the mandatory minimum doesn't cap itself at the income requirement.
     expect(result.netFromSavings).toBeGreaterThan(base.netFromSavings)
+    // The whole overflow beyond what the TFSA withdrawal could absorb shows
+    // up as surplus, ready to be redirected instead of paid out.
+    expect(result.surplus).toBeCloseTo(result.netFromSavings - base.netFromSavings, 2)
+    expect(result.surplus).toBeGreaterThan(0)
   })
 
   it('does not force more than the whole RRSP balance', () => {
