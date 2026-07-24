@@ -24,6 +24,12 @@ const COLUMN_GROUPS: { key: ColumnGroup; label: string }[] = [
   { key: 'incomeMix', label: 'Income mix' },
 ]
 
+// A withdrawal rate above this is often considered a less sustainable pace
+// (the "4% rule" rule-of-thumb for how long savings can be expected to last).
+const HIGH_WITHDRAWAL_PCT = 0.04
+
+const OVERRIDDEN_TITLE = 'Manually edited — no longer matches what the Plan inputs would produce.'
+
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
@@ -136,14 +142,6 @@ export function ResultsTable({
           </button>
         </div>
       )}
-      <p className="table-legend">
-        <span className="swatch swatch-below" /> The RRIF minimum (from age
-        72 on) forced a bigger RRSP withdrawal than the plan otherwise
-        needed this year.
-        <span className="swatch swatch-shortfall" /> Shortfall — savings could
-        not fully cover the required income.
-        <span className="swatch swatch-overridden" /> Manually edited value.
-      </p>
       <div className="table-scroll results-scroll">
         <table className="results">
           <thead>
@@ -226,7 +224,14 @@ export function ResultsTable({
                 <tr key={row.age} className={classes}>
                   <td>{row.age}</td>
                   <td>
-                    <span className={`phase phase-${row.phase}`}>
+                    <span
+                      className={`phase phase-${row.phase}`}
+                      title={
+                        row.shortfall
+                          ? "Shortfall: savings couldn't fully cover the required income this year."
+                          : undefined
+                      }
+                    >
                       {row.phase === 'accumulation' ? 'Saving' : 'Retired'}
                       {row.shortfall ? ' · shortfall' : ''}
                     </span>
@@ -239,7 +244,10 @@ export function ResultsTable({
                       </>
                     ) : isEditing ? (
                       <>
-                        <td className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td
+                          className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}
+                          title={contributionOverride?.rrspContribution !== undefined ? OVERRIDDEN_TITLE : undefined}
+                        >
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput
@@ -252,7 +260,10 @@ export function ResultsTable({
                             />
                           </div>
                         </td>
-                        <td className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td
+                          className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}
+                          title={contributionOverride?.tfsaContribution !== undefined ? OVERRIDDEN_TITLE : undefined}
+                        >
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput
@@ -268,10 +279,16 @@ export function ResultsTable({
                       </>
                     ) : (
                       <>
-                        <td className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td
+                          className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}
+                          title={contributionOverride?.rrspContribution !== undefined ? OVERRIDDEN_TITLE : undefined}
+                        >
                           {money(row.rrspContribution)}
                         </td>
-                        <td className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td
+                          className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}
+                          title={contributionOverride?.tfsaContribution !== undefined ? OVERRIDDEN_TITLE : undefined}
+                        >
                           {money(row.tfsaContribution)}
                         </td>
                       </>
@@ -281,7 +298,10 @@ export function ResultsTable({
                   <td className="num total">{formatCurrency(row.total)}</td>
                   {show('rrsp') && (
                     <>
-                      <td className={`num${withdrawalOverride?.rrspWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
+                      <td
+                        className={`num${withdrawalOverride?.rrspWithdrawal !== undefined ? ' cell-overridden' : ''}`}
+                        title={withdrawalOverride?.rrspWithdrawal !== undefined ? OVERRIDDEN_TITLE : undefined}
+                      >
                         {canEditWithdrawal && isEditing ? (
                           <div className="cell-affix">
                             <span className="affix">$</span>
@@ -299,14 +319,24 @@ export function ResultsTable({
                         )}
                       </td>
                       <td className="num">{money(rrspNet)}</td>
-                      <td className={`num${forced ? ' cell-below-min' : ''}`}>
+                      <td
+                        className={`num${forced ? ' cell-below-min' : ''}`}
+                        title={
+                          forced
+                            ? 'The RRIF minimum forced a bigger RRSP withdrawal than the plan otherwise needed this year.'
+                            : undefined
+                        }
+                      >
                         {pctOrDash(row.rrspWithdrawalPct, row.rrspWithdrawal > 0)}
                       </td>
                     </>
                   )}
                   {show('tfsa') && (
                     <>
-                      <td className={`num${withdrawalOverride?.tfsaWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
+                      <td
+                        className={`num${withdrawalOverride?.tfsaWithdrawal !== undefined ? ' cell-overridden' : ''}`}
+                        title={withdrawalOverride?.tfsaWithdrawal !== undefined ? OVERRIDDEN_TITLE : undefined}
+                      >
                         {canEditWithdrawal && isEditing ? (
                           <div className="cell-affix">
                             <span className="affix">$</span>
@@ -327,7 +357,14 @@ export function ResultsTable({
                     </>
                   )}
                   {show('totalPct') && (
-                    <td className="num">
+                    <td
+                      className={`num${row.withdrawalPct > HIGH_WITHDRAWAL_PCT ? ' cell-below-min' : ''}`}
+                      title={
+                        row.withdrawalPct > HIGH_WITHDRAWAL_PCT
+                          ? 'Withdrawing more than 4% of savings in a year is often considered a less sustainable pace.'
+                          : undefined
+                      }
+                    >
                       {pctOrDash(row.withdrawalPct, row.rrspWithdrawal > 0 || row.tfsaWithdrawal > 0)}
                     </td>
                   )}

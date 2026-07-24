@@ -707,11 +707,6 @@ table {
   background: var(--accent-bg);
 }
 
-.swatch-overridden {
-  background: var(--accent-bg);
-  border: 1px solid var(--accent-border);
-}
-
 /* Column show/hide toggles above the projection table. */
 .column-toggles {
   display: flex;
@@ -745,13 +740,6 @@ table {
   font-weight: 500;
 }
 
-/* Legend above the projection table. */
-.table-legend {
-  font-size: 12px;
-  color: var(--text);
-  margin: 0 0 12px;
-  line-height: 1.7;
-}
 .swatch {
   display: inline-block;
   width: 11px;
@@ -759,17 +747,6 @@ table {
   border-radius: 3px;
   vertical-align: -1px;
   margin: 0 5px 0 2px;
-}
-.table-legend .swatch:not(:first-child) {
-  margin-left: 14px;
-}
-.swatch-below {
-  background: rgba(230, 162, 60, 0.5);
-  border: 1px solid #e6a23c;
-}
-.swatch-shortfall {
-  background: rgba(224, 36, 94, 0.2);
-  border: 1px solid #e0245e;
 }
 
 .empty {
