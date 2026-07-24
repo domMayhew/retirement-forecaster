@@ -85,8 +85,10 @@
   vertical-align: middle;
 }
 
-/* Plan view: a spacious multi-column grid of input cards, since it no
-   longer has to share the row with results. */
+/* Plan view: Initial conditions and Retirement plan side by side (they're
+   short field lists), with the Savings plan full-width below it — that
+   table needs the room, since squeezed into a third column its cells were
+   clipping and forcing a horizontal scroll. */
 .plan-view {
   display: flex;
   flex-direction: column;
@@ -95,9 +97,24 @@
 
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    'initial retirement'
+    'savings savings';
   gap: 20px;
   align-items: start;
+}
+
+.plan-cell-initial {
+  grid-area: initial;
+}
+
+.plan-cell-retirement {
+  grid-area: retirement;
+}
+
+.plan-cell-savings {
+  grid-area: savings;
 }
 
 .plan-cta {
@@ -168,6 +185,10 @@
 @media (max-width: 720px) {
   .plan-grid {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      'initial'
+      'retirement'
+      'savings';
   }
   .plan-cta {
     position: static;

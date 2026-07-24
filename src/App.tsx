@@ -133,19 +133,19 @@ function App() {
             </p>
           )}
           <div className="plan-grid">
-            <InitialConditionsForm value={input.initial} onChange={patchInitial} />
-            <SavingsPlanForm
-              segments={input.savingsPlan}
-              retirementAge={input.initial.retirementAge}
-              onChange={setSegments}
-            />
-            <RetirementPlanForm value={input.retirement} onChange={patchRetirement} />
-            <GlobalAssumptionsForm
-              rateOfReturn={input.rateOfReturn}
-              endAge={input.endAge}
-              onRateChange={(rateOfReturn) => setInput((prev) => ({ ...prev, rateOfReturn }))}
-              onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
-            />
+            <div className="plan-cell plan-cell-initial">
+              <InitialConditionsForm value={input.initial} onChange={patchInitial} />
+            </div>
+            <div className="plan-cell plan-cell-retirement">
+              <RetirementPlanForm value={input.retirement} onChange={patchRetirement} />
+            </div>
+            <div className="plan-cell plan-cell-savings">
+              <SavingsPlanForm
+                segments={input.savingsPlan}
+                retirementAge={input.initial.retirementAge}
+                onChange={setSegments}
+              />
+            </div>
           </div>
 
           <div className="plan-cta">
@@ -184,6 +184,12 @@ function App() {
             </p>
           )}
 
+          <GlobalAssumptionsForm
+            rateOfReturn={input.rateOfReturn}
+            endAge={input.endAge}
+            onRateChange={(rateOfReturn) => setInput((prev) => ({ ...prev, rateOfReturn }))}
+            onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
+          />
           <SavingsChart forecast={forecast} />
           <ContributionRoomChart forecast={forecast} />
           <ResultsTable forecast={forecast} />
