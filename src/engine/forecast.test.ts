@@ -54,6 +54,7 @@ function baseInput(): ForecastInput {
     rateOfReturn: 0.10,
     endAge: 66,
     contributionOverrides: {},
+    withdrawalOverrides: {},
   }
 }
 
@@ -157,6 +158,76 @@ describe('runForecast: retirement years deliver the required income and update b
   })
 })
 
+describe('runForecast: manual withdrawal overrides replace the solved-for amount for that age', () => {
+  it('overrides just the RRSP withdrawal, recomputing tax/net and flagging the shortfall this creates', () => {
+    // Age 65 naturally withdraws 25k/25k for a 45k net. Override RRSP down
+    // to 10,000: tax = 2,000, net = 10,000 - 2,000 + 25,000 (TFSA untouched,
+    // still the naturally solved amount) = 33,000 — under the 45k need.
+    const input = baseInput()
+    input.withdrawalOverrides = { 65: { rrspWithdrawal: 10000 } }
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.rrspWithdrawal).toBe(10000)
+    expect(y65.taxPaid).toBeCloseTo(2000, 6)
+    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 6)
+    expect(y65.netFromSavings).toBeCloseTo(33000, 6)
+    expect(y65.shortfall).toBe(true)
+    expect(y65.rrsp).toBeCloseTo((110000 - 10000) * 1.1, 6)
+    expect(y65.tfsa).toBeCloseTo((110000 - 25000) * 1.1, 6)
+  })
+
+  it('overrides just the TFSA withdrawal, leaving RRSP solved normally', () => {
+    const input = baseInput()
+    input.withdrawalOverrides = { 65: { tfsaWithdrawal: 10000 } }
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.tfsaWithdrawal).toBe(10000)
+    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 6)
+    expect(y65.netFromSavings).toBeCloseTo(25000 - 5000 + 10000, 6)
+    expect(y65.shortfall).toBe(true)
+  })
+
+  it('overrides both accounts at once', () => {
+    const input = baseInput()
+    input.withdrawalOverrides = { 65: { rrspWithdrawal: 5000, tfsaWithdrawal: 5000 } }
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.taxPaid).toBeCloseTo(1000, 6)
+    expect(y65.netFromSavings).toBeCloseTo(9000, 6)
+    expect(y65.rrsp).toBeCloseTo((110000 - 5000) * 1.1, 6)
+    expect(y65.tfsa).toBeCloseTo((110000 - 5000) * 1.1, 6)
+  })
+
+  it('clamps an override to the start-of-year balance rather than going negative', () => {
+    const input = baseInput()
+    input.withdrawalOverrides = { 65: { rrspWithdrawal: 999999999 } }
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    expect(y65.rrspWithdrawal).toBeCloseTo(110000, 6)
+    expect(y65.rrsp).toBeCloseTo(0, 6)
+  })
+
+  it('does not clear the RRIF-forced-minimum flag just because the override ignores it', () => {
+    // Same scenario as the RRIF-minimum test: age 72, huge RRSP, tiny income
+    // need, so the mandatory minimum would normally force ~5.4% out. An
+    // override that disregards that minimum still shows what actually
+    // happened (the tiny override amount) while forcedMinimumWithdrawal
+    // keeps reporting that the underlying rule was in play this year.
+    const input = baseInput()
+    input.initial.currentAge = 71
+    input.initial.retirementAge = 72
+    input.initial.currentRRSP = 500000
+    input.initial.currentTFSA = 500000
+    input.retirement.requiredMonthlyIncome = 100
+    input.endAge = 72
+    input.withdrawalOverrides = { 72: { rrspWithdrawal: 100 } }
+    const rows = runForecast(input)
+    const y72 = rows.find((r) => r.age === 72)!
+    expect(y72.rrspWithdrawal).toBe(100)
+    expect(y72.forcedMinimumWithdrawal).toBe(true)
+  })
+})
+
 describe('runForecast: CPP/OAS are pre-tax and reduce the amount drawn from savings', () => {
   it('applies the retirement tax rate to CPP, so only its AFTER-TAX value shrinks the gap', () => {
     // $1,250/mo CPP -> $15,000/yr gross. At 20% tax the after-tax CPP is
@@ -248,6 +319,7 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
       rateOfReturn: 0,
       endAge: 43,
       contributionOverrides: {},
+      withdrawalOverrides: {},
     }
     const rows = runForecast(input)
     expect(rows.find((r) => r.age === 40)!.rrsp).toBeCloseTo(12000, 6)

@@ -71,6 +71,17 @@ export interface ContributionOverride {
 }
 
 /**
+ * A manual override of one or both retirement-year withdrawals for a
+ * specific age, entered directly in the results table rather than solved
+ * for by the withdrawal engine. Either field may be set independently, and
+ * each is clamped to the account's start-of-year balance.
+ */
+export interface WithdrawalOverride {
+  rrspWithdrawal?: number
+  tfsaWithdrawal?: number
+}
+
+/**
  * The full set of user inputs plus global assumptions.
  */
 export interface ForecastInput {
@@ -88,6 +99,12 @@ export interface ForecastInput {
    * manual edits — i.e. the table is fully "in sync" with the segment inputs.
    */
   contributionOverrides: Record<number, ContributionOverride>
+  /**
+   * Per-age manual withdrawal overrides, keyed by age. Lets a saver hand-edit
+   * a specific retirement year's RRSP/TFSA withdrawal instead of only through
+   * the solved-for income need. Empty when the plan has no manual edits.
+   */
+  withdrawalOverrides: Record<number, WithdrawalOverride>
 }
 
 /**

@@ -445,13 +445,33 @@ export function runForecast(input: ForecastInput): Forecast {
     const startRRSP = rrsp
     const startTFSA = tfsa
     const needed = computeRetirementWithdrawal(startRRSP, startTFSA, gap, taxRate)
-    const w = applyRRIFMinimum(needed, startRRSP, startTFSA, age, taxRate)
+    const adjusted = applyRRIFMinimum(needed, startRRSP, startTFSA, age, taxRate)
+
+    // A manual override (entered directly in the results table) replaces the
+    // solved-for withdrawal for this specific age, clamped to what's actually
+    // available; tax, net cash, and the blended withdrawal % are recomputed
+    // to match, exactly as they would be for any other year.
+    const override = input.withdrawalOverrides[age]
+    const rrspWithdrawal =
+      override?.rrspWithdrawal !== undefined
+        ? Math.min(Math.max(override.rrspWithdrawal, 0), startRRSP)
+        : adjusted.rrspWithdrawal
+    const tfsaWithdrawal =
+      override?.tfsaWithdrawal !== undefined
+        ? Math.min(Math.max(override.tfsaWithdrawal, 0), startTFSA)
+        : adjusted.tfsaWithdrawal
+    const taxPaid = rrspWithdrawal * taxRate
+    const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
+    const startTotal = startRRSP + startTFSA
+    const withdrawalPct = startTotal > 0 ? (rrspWithdrawal + tfsaWithdrawal) / startTotal : 0
 
     // Growth applies AFTER withdrawal (flow first, then grow).
-    rrsp = (startRRSP - w.rrspWithdrawal) * (1 + rateOfReturn)
-    tfsa = (startTFSA - w.tfsaWithdrawal) * (1 + rateOfReturn)
+    rrsp = (startRRSP - rrspWithdrawal) * (1 + rateOfReturn)
+    tfsa = (startTFSA - tfsaWithdrawal) * (1 + rateOfReturn)
 
-    const totalIncome = w.netFromSavings + cppAfterTax + oasAfterTax
+    const totalIncome = netFromSavings + cppAfterTax + oasAfterTax
+    // A cent of float slop shouldn't read as a shortfall.
+    const shortfall = totalIncome < requiredAnnualIncome - 0.01
 
     rows.push({
       age,
@@ -461,21 +481,21 @@ export function runForecast(input: ForecastInput): Forecast {
       total: rrsp + tfsa,
       rrspContribution: 0,
       tfsaContribution: 0,
-      rrspWithdrawal: w.rrspWithdrawal,
-      tfsaWithdrawal: w.tfsaWithdrawal,
-      withdrawalPct: w.withdrawalPct,
-      rrspWithdrawalPct: startRRSP > 0 ? w.rrspWithdrawal / startRRSP : 0,
-      tfsaWithdrawalPct: startTFSA > 0 ? w.tfsaWithdrawal / startTFSA : 0,
+      rrspWithdrawal,
+      tfsaWithdrawal,
+      withdrawalPct,
+      rrspWithdrawalPct: startRRSP > 0 ? rrspWithdrawal / startRRSP : 0,
+      tfsaWithdrawalPct: startTFSA > 0 ? tfsaWithdrawal / startTFSA : 0,
       cpp,
       cppAfterTax,
       oas,
       oasAfterTax,
-      netFromSavings: w.netFromSavings,
-      incomeFromSavingsPct: totalIncome > 0 ? w.netFromSavings / totalIncome : 0,
+      netFromSavings,
+      incomeFromSavingsPct: totalIncome > 0 ? netFromSavings / totalIncome : 0,
       incomeFromCppOasPct: totalIncome > 0 ? (cppAfterTax + oasAfterTax) / totalIncome : 0,
-      taxPaid: w.taxPaid,
-      shortfall: w.shortfall,
-      forcedMinimumWithdrawal: w.forcedMinimum,
+      taxPaid,
+      shortfall,
+      forcedMinimumWithdrawal: adjusted.forcedMinimum,
       // No earned income assumed in retirement, so room neither accrues nor
       // is spent — it just carries forward unchanged.
       rrspRoom,

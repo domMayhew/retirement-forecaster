@@ -5,6 +5,7 @@ import type {
   InitialConditions,
   RetirementPlan,
   SavingsPlanSegment,
+  WithdrawalOverride,
 } from './engine/types'
 import { runForecast } from './engine/forecast'
 import { InitialConditionsForm } from './components/InitialConditionsForm'
@@ -50,6 +51,7 @@ const DEFAULT_INPUT: ForecastInput = {
   rateOfReturn: 0.05,
   endAge: 100,
   contributionOverrides: {},
+  withdrawalOverrides: {},
 }
 
 // Defends against saved plans from an earlier version of the app that are
@@ -97,8 +99,22 @@ function App() {
     }))
   }
 
+  function setWithdrawalOverride(
+    age: number,
+    field: keyof WithdrawalOverride,
+    value: number,
+  ) {
+    setInput((prev) => ({
+      ...prev,
+      withdrawalOverrides: {
+        ...prev.withdrawalOverrides,
+        [age]: { ...prev.withdrawalOverrides[age], [field]: value },
+      },
+    }))
+  }
+
   function recalculateFromInputs() {
-    setInput((prev) => ({ ...prev, contributionOverrides: {} }))
+    setInput((prev) => ({ ...prev, contributionOverrides: {}, withdrawalOverrides: {} }))
   }
 
   function loadPlan(saved: SavedPlan) {
@@ -244,6 +260,8 @@ function App() {
             forecast={forecast}
             contributionOverrides={input.contributionOverrides}
             onContributionOverride={setContributionOverride}
+            withdrawalOverrides={input.withdrawalOverrides}
+            onWithdrawalOverride={setWithdrawalOverride}
             onRecalculate={recalculateFromInputs}
           />
         </div>

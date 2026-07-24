@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ContributionOverride, Forecast } from '../engine/types'
+import type { ContributionOverride, Forecast, WithdrawalOverride } from '../engine/types'
 import { formatCurrency } from '../utils/format'
 import { BareNumberInput } from './fields'
 
@@ -7,6 +7,8 @@ interface Props {
   forecast: Forecast
   contributionOverrides: Record<number, ContributionOverride>
   onContributionOverride: (age: number, field: keyof ContributionOverride, value: number) => void
+  withdrawalOverrides: Record<number, WithdrawalOverride>
+  onWithdrawalOverride: (age: number, field: keyof WithdrawalOverride, value: number) => void
   onRecalculate: () => void
 }
 
@@ -40,6 +42,8 @@ export function ResultsTable({
   forecast,
   contributionOverrides,
   onContributionOverride,
+  withdrawalOverrides,
+  onWithdrawalOverride,
   onRecalculate,
 }: Props) {
   const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set())
@@ -66,7 +70,8 @@ export function ResultsTable({
   }
 
   const show = (key: ColumnGroup) => !hidden.has(key)
-  const overrideCount = Object.keys(contributionOverrides).length
+  const overrideCount =
+    Object.keys(contributionOverrides).length + Object.keys(withdrawalOverrides).length
 
   return (
     <section className="card">
@@ -88,8 +93,8 @@ export function ResultsTable({
       {overrideCount > 0 && (
         <div className="active-plan-banner">
           <span>
-            {overrideCount} manually edited {overrideCount === 1 ? 'contribution' : 'contributions'}{' '}
-            — this table no longer matches the Plan inputs exactly.
+            {overrideCount} manually edited {overrideCount === 1 ? 'value' : 'values'} — this
+            table no longer matches the Plan inputs exactly.
           </span>
           <button type="button" className="btn-back" onClick={onRecalculate}>
             Recalculate from inputs
@@ -183,8 +188,10 @@ export function ResultsTable({
                 .join(' ')
               const rrspNet = row.rrspWithdrawal - row.taxPaid
               const hasIncome = row.netFromSavings > 0 || row.cppAfterTax > 0 || row.oasAfterTax > 0
-              const override = contributionOverrides[row.age]
+              const contributionOverride = contributionOverrides[row.age]
+              const withdrawalOverride = withdrawalOverrides[row.age]
               const canEditContribution = row.phase === 'accumulation'
+              const canEditWithdrawal = row.phase === 'retirement'
               return (
                 <tr key={row.age} className={classes || undefined}>
                   <td>{row.age}</td>
@@ -197,7 +204,7 @@ export function ResultsTable({
                   {show('contributions') &&
                     (canEditContribution ? (
                       <>
-                        <td className={`num${override?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput
@@ -210,7 +217,7 @@ export function ResultsTable({
                             />
                           </div>
                         </td>
-                        <td className={`num${override?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
+                        <td className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput
@@ -235,7 +242,23 @@ export function ResultsTable({
                   <td className="num total">{formatCurrency(row.total)}</td>
                   {show('rrsp') && (
                     <>
-                      <td className="num">{money(row.rrspWithdrawal)}</td>
+                      <td className={`num${withdrawalOverride?.rrspWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
+                        {canEditWithdrawal ? (
+                          <div className="cell-affix">
+                            <span className="affix">$</span>
+                            <BareNumberInput
+                              label=""
+                              min={0}
+                              step={100}
+                              value={row.rrspWithdrawal}
+                              ariaLabel={`Age ${row.age} RRSP withdrawal`}
+                              onChange={(v) => onWithdrawalOverride(row.age, 'rrspWithdrawal', v)}
+                            />
+                          </div>
+                        ) : (
+                          money(row.rrspWithdrawal)
+                        )}
+                      </td>
                       <td className="num">{money(rrspNet)}</td>
                       <td className={`num${forced ? ' cell-below-min' : ''}`}>
                         {pctOrDash(row.rrspWithdrawalPct, row.rrspWithdrawal > 0)}
@@ -244,7 +267,23 @@ export function ResultsTable({
                   )}
                   {show('tfsa') && (
                     <>
-                      <td className="num">{money(row.tfsaWithdrawal)}</td>
+                      <td className={`num${withdrawalOverride?.tfsaWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
+                        {canEditWithdrawal ? (
+                          <div className="cell-affix">
+                            <span className="affix">$</span>
+                            <BareNumberInput
+                              label=""
+                              min={0}
+                              step={100}
+                              value={row.tfsaWithdrawal}
+                              ariaLabel={`Age ${row.age} TFSA withdrawal`}
+                              onChange={(v) => onWithdrawalOverride(row.age, 'tfsaWithdrawal', v)}
+                            />
+                          </div>
+                        ) : (
+                          money(row.tfsaWithdrawal)
+                        )}
+                      </td>
                       <td className="num">{pctOrDash(row.tfsaWithdrawalPct, row.tfsaWithdrawal > 0)}</td>
                     </>
                   )}
