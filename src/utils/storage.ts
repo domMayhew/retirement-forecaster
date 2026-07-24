@@ -49,3 +49,15 @@ export function savePlan(name: string, input: ForecastInput): SavedPlan {
 export function deleteSavedPlan(id: string): void {
   writeAll(readAll().filter((p) => p.id !== id))
 }
+
+/** Overwrite an existing saved plan's input in place. Returns null if `id` isn't found. */
+export function updateSavedPlan(id: string, input: ForecastInput): SavedPlan | null {
+  const all = readAll()
+  const index = all.findIndex((p) => p.id === id)
+  if (index === -1) return null
+  const updated: SavedPlan = { ...all[index], input, savedAt: new Date().toISOString() }
+  const next = [...all]
+  next[index] = updated
+  writeAll(next)
+  return updated
+}

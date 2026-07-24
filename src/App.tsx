@@ -13,7 +13,8 @@ import { GlobalAssumptionsForm } from './components/GlobalAssumptionsForm'
 import { ResultsTable } from './components/ResultsTable'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
-import { SavedPlans } from './components/SavedPlans'
+import { SavedPlans, type ActivePlan } from './components/SavedPlans'
+import type { SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
 import './App.css'
 
@@ -66,6 +67,7 @@ type Mode = 'plan' | 'results'
 function App() {
   const [input, setInput] = useState<ForecastInput>(DEFAULT_INPUT)
   const [mode, setMode] = useState<Mode>('plan')
+  const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
 
   function patchInitial(patch: Partial<InitialConditions>) {
     setInput((prev) => ({ ...prev, initial: { ...prev.initial, ...patch } }))
@@ -79,8 +81,9 @@ function App() {
     setInput((prev) => ({ ...prev, savingsPlan }))
   }
 
-  function loadPlan(saved: ForecastInput) {
-    setInput(withDefaults(saved))
+  function loadPlan(saved: SavedPlan) {
+    setInput(withDefaults(saved.input))
+    setActivePlan({ id: saved.id, name: saved.name })
     setMode('results')
   }
 
@@ -150,7 +153,13 @@ function App() {
               updated results.
             </p>
           )}
-          <SavedPlans currentInput={input} canSave={planIsValid} onLoad={loadPlan} />
+          <SavedPlans
+            currentInput={input}
+            canSave={planIsValid}
+            activePlan={activePlan}
+            onLoad={loadPlan}
+            onActivePlanChange={setActivePlan}
+          />
           <div className="plan-grid">
             <div className="plan-cell plan-cell-initial">
               <InitialConditionsForm value={input.initial} onChange={patchInitial} />
