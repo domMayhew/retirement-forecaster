@@ -23,7 +23,11 @@ interface Props {
   activePlan: ActivePlan | null
   onLoad: (plan: SavedPlan) => void
   onActivePlanChange: (plan: ActivePlan | null) => void
+  onCompare: (plans: SavedPlan[]) => void
 }
+
+/** Selecting more than this many plans to compare gets visually cluttered fast. */
+const MAX_COMPARE = 5
 
 function formatSavedAt(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -35,10 +39,18 @@ function formatSavedAt(iso: string): string {
   })
 }
 
-export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActivePlanChange }: Props) {
+export function SavedPlans({
+  currentInput,
+  canSave,
+  activePlan,
+  onLoad,
+  onActivePlanChange,
+  onCompare,
+}: Props) {
   const [plans, setPlans] = useState<SavedPlan[]>(() => listSavedPlans())
   const [name, setName] = useState('')
   const [defaultPlanId, setDefaultPlanIdState] = useState<string | null>(() => getDefaultPlanId())
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
 
   function handleSaveAsNew() {
     const trimmed = name.trim()
@@ -61,12 +73,27 @@ export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActive
     setPlans(listSavedPlans())
     if (activePlan?.id === id) onActivePlanChange(null)
     if (defaultPlanId === id) setDefaultPlanIdState(null)
+    setSelectedIds((prev) => prev.filter((x) => x !== id))
   }
 
   function toggleDefault(id: string) {
     const next = defaultPlanId === id ? null : id
     setDefaultPlanId(next)
     setDefaultPlanIdState(next)
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id)
+      if (prev.length >= MAX_COMPARE) return prev
+      return [...prev, id]
+    })
+  }
+
+  function handleCompare() {
+    const selected = plans.filter((p) => selectedIds.includes(p.id))
+    if (selected.length < 2) return
+    onCompare(selected)
   }
 
   return (
@@ -116,20 +143,54 @@ export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActive
       {plans.length === 0 ? (
         <p className="empty">No saved plans yet.</p>
       ) : (
-        <ul className="saved-plan-list">
-          {plans.map((plan) => {
-            const isDefault = plan.id === defaultPlanId
-            return (
-              <li key={plan.id} className="saved-plan-row">
-                <div className="saved-plan-info">
-                  <span className="saved-plan-name">
-                    {plan.name}
-                    {isDefault && <span className="default-badge">Default</span>}
-                  </span>
-                  <span className="saved-plan-date">Saved {formatSavedAt(plan.savedAt)}</span>
-                </div>
-                <div className="saved-plan-actions">
-                  <button
+        <>
+          {plans.length >= 2 && (
+            <div className="compare-bar">
+              <span>
+                {selectedIds.length === 0
+                  ? 'Select plans below to compare them.'
+                  : `${selectedIds.length} plan${selectedIds.length === 1 ? '' : 's'} selected`}
+              </span>
+              <button
+                type="button"
+                className="btn-back"
+                onClick={handleCompare}
+                disabled={selectedIds.length < 2}
+                title={selectedIds.length < 2 ? 'Select at least 2 plans to compare' : undefined}
+              >
+                Compare {selectedIds.length > 0 ? selectedIds.length : ''} plans
+              </button>
+            </div>
+          )}
+          <ul className="saved-plan-list">
+            {plans.map((plan) => {
+              const isDefault = plan.id === defaultPlanId
+              return (
+                <li key={plan.id} className="saved-plan-row">
+                  {plans.length >= 2 && (
+                    <input
+                      type="checkbox"
+                      className="compare-checkbox"
+                      checked={selectedIds.includes(plan.id)}
+                      onChange={() => toggleSelected(plan.id)}
+                      disabled={!selectedIds.includes(plan.id) && selectedIds.length >= MAX_COMPARE}
+                      aria-label={`Select "${plan.name}" to compare`}
+                      title={
+                        !selectedIds.includes(plan.id) && selectedIds.length >= MAX_COMPARE
+                          ? `You can compare up to ${MAX_COMPARE} plans at a time`
+                          : undefined
+                      }
+                    />
+                  )}
+                  <div className="saved-plan-info">
+                    <span className="saved-plan-name">
+                      {plan.name}
+                      {isDefault && <span className="default-badge">Default</span>}
+                    </span>
+                    <span className="saved-plan-date">Saved {formatSavedAt(plan.savedAt)}</span>
+                  </div>
+                  <div className="saved-plan-actions">
+                    <button
                     type="button"
                     className={isDefault ? 'btn-star active' : 'btn-star'}
                     aria-pressed={isDefault}
@@ -158,11 +219,12 @@ export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActive
                   >
                     ✕
                   </button>
-                </div>
-              </li>
-            )
-          })}
-        </ul>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       )}
     </section>
   )

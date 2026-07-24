@@ -17,57 +17,13 @@ import { ResultsSummary } from './components/ResultsSummary'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
 import { SavedPlans, type ActivePlan } from './components/SavedPlans'
+import { PlanComparison } from './components/PlanComparison'
 import { getDefaultPlanId, getSettings, listSavedPlans, updateSettings, type SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
+import { DEFAULT_INPUT, withDefaults } from './defaultInput'
 import './App.css'
 
-// Sensible defaults so the app shows something immediately on load.
-const DEFAULT_INPUT: ForecastInput = {
-  initial: {
-    currentAge: 35,
-    currentRRSP: 50000,
-    currentTFSA: 30000,
-    currentIncome: 90000,
-    retirementAge: 65,
-    incomeTaxRate: 0.25,
-    currentRRSPRoom: 40000,
-  },
-  savingsPlan: [
-    {
-      id: 'seg-initial',
-      monthlyRRSP: 500,
-      monthlyTFSA: 500,
-      refundReinvestFraction: 1,
-      untilAge: 65,
-    },
-  ],
-  retirement: {
-    requiredMonthlyIncome: 4000,
-    cppMonthly: 1000,
-    cppStartAge: 65,
-    oasMonthly: 700,
-    oasStartAge: 65,
-    retirementTaxRate: 0.15,
-  },
-  rateOfReturn: 0.05,
-  endAge: 100,
-  contributionOverrides: {},
-  withdrawalOverrides: {},
-}
-
-// Defends against saved plans from an earlier version of the app that are
-// missing fields a newer schema added, so loading one can't hand the engine
-// undefined numbers.
-function withDefaults(saved: ForecastInput): ForecastInput {
-  return {
-    ...DEFAULT_INPUT,
-    ...saved,
-    initial: { ...DEFAULT_INPUT.initial, ...saved.initial },
-    retirement: { ...DEFAULT_INPUT.retirement, ...saved.retirement },
-  }
-}
-
-type Mode = 'plan' | 'results'
+type Mode = 'plan' | 'results' | 'compare'
 
 // If a saved plan has been marked as the default, load it instead of the
 // built-in starter values — that's the whole point of marking one.
@@ -85,6 +41,7 @@ function App() {
   const [input, setInput] = useState<ForecastInput>(() => getStartupState().input)
   const [mode, setMode] = useState<Mode>('plan')
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(() => getStartupState().activePlan)
+  const [comparePlans, setComparePlans] = useState<SavedPlan[]>([])
   // The assumed rate of return is a global setting, not part of any one
   // plan: it persists across reloads and stays put across loading a
   // different plan, instead of getting overwritten by whatever rate that
@@ -148,6 +105,11 @@ function App() {
     setMode('results')
   }
 
+  function comparePlansHandler(plans: SavedPlan[]) {
+    setComparePlans(plans)
+    setMode('compare')
+  }
+
   // The full engine input: everything the saver edits, plus the globally
   // assumed rate of return layered on top (never the other way around).
   const effectiveInput = useMemo(() => ({ ...input, rateOfReturn }), [input, rateOfReturn])
@@ -179,7 +141,7 @@ function App() {
   }, [planIsValid])
 
   return (
-    <div className={mode === 'results' ? 'app app-wide' : 'app'}>
+    <div className={mode === 'results' || mode === 'compare' ? 'app app-wide' : 'app'}>
       <header className="app-header">
         <div className="app-header-top">
           <div>
@@ -224,6 +186,7 @@ function App() {
             activePlan={activePlan}
             onLoad={loadPlan}
             onActivePlanChange={setActivePlan}
+            onCompare={comparePlansHandler}
           />
           <div className="plan-grid">
             <div className="plan-cell plan-cell-initial">
@@ -261,6 +224,13 @@ function App() {
               View results →
             </button>
           </div>
+        </div>
+      ) : mode === 'compare' ? (
+        <div className="results-view">
+          <button type="button" className="btn-back" onClick={() => setMode('plan')}>
+            ← Edit inputs
+          </button>
+          <PlanComparison plans={comparePlans} rateOfReturn={rateOfReturn} />
         </div>
       ) : (
         <div className="results-view">

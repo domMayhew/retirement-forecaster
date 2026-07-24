@@ -12,6 +12,13 @@
      --accent (used for Total) and from each other. */
   --chart-rrsp: #eb6834;
   --chart-tfsa: #1baf7a;
+  /* Per-plan colors for the compare feature, reusing the accent/RRSP/TFSA
+     hues above plus two more categorical colors for a 5-plan palette. */
+  --compare-1: var(--accent);
+  --compare-2: var(--chart-rrsp);
+  --compare-3: var(--chart-tfsa);
+  --compare-4: #eab308;
+  --compare-5: #db2777;
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
@@ -47,6 +54,11 @@
     --social-bg: rgba(47, 48, 58, 0.5);
     --chart-rrsp: #d95926;
     --chart-tfsa: #199e70;
+    --compare-1: var(--accent);
+    --compare-2: var(--chart-rrsp);
+    --compare-3: var(--chart-tfsa);
+    --compare-4: #facc15;
+    --compare-5: #f472b6;
     --shadow:
       rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }

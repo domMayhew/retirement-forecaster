@@ -903,3 +903,89 @@ table {
 .chart-line-danger {
   stroke: #e0245e;
 }
+
+/* Compare feature ---------------------------------------------------------- */
+.compare-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.compare-checkbox {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.saved-plan-list .saved-plan-row {
+  justify-content: flex-start;
+}
+
+.saved-plan-list .saved-plan-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.compare-swatch-0,
+.compare-line-0 {
+  background: var(--compare-1);
+  stroke: var(--compare-1);
+}
+
+.compare-swatch-1,
+.compare-line-1 {
+  background: var(--compare-2);
+  stroke: var(--compare-2);
+}
+
+.compare-swatch-2,
+.compare-line-2 {
+  background: var(--compare-3);
+  stroke: var(--compare-3);
+}
+
+.compare-swatch-3,
+.compare-line-3 {
+  background: var(--compare-4);
+  stroke: var(--compare-4);
+}
+
+.compare-swatch-4,
+.compare-line-4 {
+  background: var(--compare-5);
+  stroke: var(--compare-5);
+}
+
+.compare-table th,
+.compare-table td {
+  padding: 8px 16px 8px 0;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.compare-table th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.compare-table td:first-child,
+.compare-table th:first-child {
+  color: var(--text);
+  padding-right: 24px;
+}
+
+.compare-table tbody td:first-child {
+  font-weight: 500;
+  color: var(--text-h);
+}
