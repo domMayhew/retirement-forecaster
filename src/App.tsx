@@ -296,9 +296,20 @@ function App() {
         </div>
       ) : (
         <div className="results-view">
-          <button type="button" className="btn-back" onClick={() => setMode('plan')}>
-            ← Edit inputs
-          </button>
+          <div className="results-header-row">
+            <button type="button" className="btn-back" onClick={() => setMode('plan')}>
+              ← Edit inputs
+            </button>
+            <span className="active-plan-indicator">
+              {activePlan ? (
+                <>
+                  Plan: <strong>{activePlan.name}</strong>
+                </>
+              ) : (
+                'Unsaved plan'
+              )}
+            </span>
+          </div>
 
           {roomExceededYear && (
             <p className="notice">

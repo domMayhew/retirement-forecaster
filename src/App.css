@@ -182,6 +182,23 @@
   background: var(--code-bg);
 }
 
+.results-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.active-plan-indicator {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.active-plan-indicator strong {
+  color: var(--text-h);
+}
+
 @media (max-width: 720px) {
   .plan-grid {
     grid-template-columns: 1fr;
