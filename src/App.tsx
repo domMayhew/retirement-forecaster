@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type {
+  ContributionOverride,
   ForecastInput,
   InitialConditions,
   RetirementPlan,
@@ -48,6 +49,7 @@ const DEFAULT_INPUT: ForecastInput = {
   },
   rateOfReturn: 0.05,
   endAge: 100,
+  contributionOverrides: {},
 }
 
 // Defends against saved plans from an earlier version of the app that are
@@ -79,6 +81,24 @@ function App() {
 
   function setSegments(savingsPlan: SavingsPlanSegment[]) {
     setInput((prev) => ({ ...prev, savingsPlan }))
+  }
+
+  function setContributionOverride(
+    age: number,
+    field: keyof ContributionOverride,
+    value: number,
+  ) {
+    setInput((prev) => ({
+      ...prev,
+      contributionOverrides: {
+        ...prev.contributionOverrides,
+        [age]: { ...prev.contributionOverrides[age], [field]: value },
+      },
+    }))
+  }
+
+  function recalculateFromInputs() {
+    setInput((prev) => ({ ...prev, contributionOverrides: {} }))
   }
 
   function loadPlan(saved: SavedPlan) {
@@ -220,7 +240,12 @@ function App() {
           />
           <SavingsChart forecast={forecast} />
           <ContributionRoomChart forecast={forecast} />
-          <ResultsTable forecast={forecast} />
+          <ResultsTable
+            forecast={forecast}
+            contributionOverrides={input.contributionOverrides}
+            onContributionOverride={setContributionOverride}
+            onRecalculate={recalculateFromInputs}
+          />
         </div>
       )}
     </div>

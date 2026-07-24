@@ -1,14 +1,19 @@
 import { useState } from 'react'
-import type { Forecast } from '../engine/types'
+import type { ContributionOverride, Forecast } from '../engine/types'
 import { formatCurrency } from '../utils/format'
+import { BareNumberInput } from './fields'
 
 interface Props {
   forecast: Forecast
+  contributionOverrides: Record<number, ContributionOverride>
+  onContributionOverride: (age: number, field: keyof ContributionOverride, value: number) => void
+  onRecalculate: () => void
 }
 
-type ColumnGroup = 'rrsp' | 'tfsa' | 'totalPct' | 'cpp' | 'oas' | 'incomeMix'
+type ColumnGroup = 'contributions' | 'rrsp' | 'tfsa' | 'totalPct' | 'cpp' | 'oas' | 'incomeMix'
 
 const COLUMN_GROUPS: { key: ColumnGroup; label: string }[] = [
+  { key: 'contributions', label: 'Contributions' },
   { key: 'rrsp', label: 'RRSP' },
   { key: 'tfsa', label: 'TFSA' },
   { key: 'totalPct', label: 'Total % withdrawn' },
@@ -31,7 +36,12 @@ function pctOrDash(value: number, applicable: boolean): string {
   return applicable ? pct(value) : '—'
 }
 
-export function ResultsTable({ forecast }: Props) {
+export function ResultsTable({
+  forecast,
+  contributionOverrides,
+  onContributionOverride,
+  onRecalculate,
+}: Props) {
   const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set())
 
   function toggleGroup(key: ColumnGroup) {
@@ -56,6 +66,7 @@ export function ResultsTable({ forecast }: Props) {
   }
 
   const show = (key: ColumnGroup) => !hidden.has(key)
+  const overrideCount = Object.keys(contributionOverrides).length
 
   return (
     <section className="card">
@@ -74,12 +85,24 @@ export function ResultsTable({ forecast }: Props) {
           </button>
         ))}
       </div>
+      {overrideCount > 0 && (
+        <div className="active-plan-banner">
+          <span>
+            {overrideCount} manually edited {overrideCount === 1 ? 'contribution' : 'contributions'}{' '}
+            — this table no longer matches the Plan inputs exactly.
+          </span>
+          <button type="button" className="btn-back" onClick={onRecalculate}>
+            Recalculate from inputs
+          </button>
+        </div>
+      )}
       <p className="table-legend">
         <span className="swatch swatch-below" /> The RRIF minimum (from age
         72 on) forced a bigger RRSP withdrawal than the plan otherwise
         needed this year.
         <span className="swatch swatch-shortfall" /> Shortfall — savings could
         not fully cover the required income.
+        <span className="swatch swatch-overridden" /> Manually edited value.
       </p>
       <div className="table-scroll results-scroll">
         <table className="results">
@@ -87,6 +110,9 @@ export function ResultsTable({ forecast }: Props) {
             <tr>
               <th rowSpan={2}>Age</th>
               <th rowSpan={2}>Phase</th>
+              {show('contributions') && (
+                <th className="num" colSpan={2}>Contributions</th>
+              )}
               <th className="num" colSpan={show('rrsp') && show('tfsa') ? 3 : show('rrsp') || show('tfsa') ? 2 : 1}>
                 Balances (end of year)
               </th>
@@ -104,6 +130,12 @@ export function ResultsTable({ forecast }: Props) {
               {show('incomeMix') && <th className="num" colSpan={2}>Income mix</th>}
             </tr>
             <tr>
+              {show('contributions') && (
+                <>
+                  <th className="num sub">RRSP</th>
+                  <th className="num sub">TFSA</th>
+                </>
+              )}
               {show('rrsp') && <th className="num sub">RRSP</th>}
               {show('tfsa') && <th className="num sub">TFSA</th>}
               <th className="num sub">Total</th>
@@ -151,6 +183,8 @@ export function ResultsTable({ forecast }: Props) {
                 .join(' ')
               const rrspNet = row.rrspWithdrawal - row.taxPaid
               const hasIncome = row.netFromSavings > 0 || row.cppAfterTax > 0 || row.oasAfterTax > 0
+              const override = contributionOverrides[row.age]
+              const canEditContribution = row.phase === 'accumulation'
               return (
                 <tr key={row.age} className={classes || undefined}>
                   <td>{row.age}</td>
@@ -160,6 +194,42 @@ export function ResultsTable({ forecast }: Props) {
                       {row.shortfall ? ' · shortfall' : ''}
                     </span>
                   </td>
+                  {show('contributions') &&
+                    (canEditContribution ? (
+                      <>
+                        <td className={`num${override?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
+                          <div className="cell-affix">
+                            <span className="affix">$</span>
+                            <BareNumberInput
+                              label=""
+                              min={0}
+                              step={50}
+                              value={row.rrspContribution}
+                              ariaLabel={`Age ${row.age} RRSP contribution`}
+                              onChange={(v) => onContributionOverride(row.age, 'rrspContribution', v)}
+                            />
+                          </div>
+                        </td>
+                        <td className={`num${override?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
+                          <div className="cell-affix">
+                            <span className="affix">$</span>
+                            <BareNumberInput
+                              label=""
+                              min={0}
+                              step={50}
+                              value={row.tfsaContribution}
+                              ariaLabel={`Age ${row.age} TFSA contribution`}
+                              onChange={(v) => onContributionOverride(row.age, 'tfsaContribution', v)}
+                            />
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="num">—</td>
+                        <td className="num">—</td>
+                      </>
+                    ))}
                   {show('rrsp') && <td className="num">{formatCurrency(row.rrsp)}</td>}
                   {show('tfsa') && <td className="num">{formatCurrency(row.tfsa)}</td>}
                   <td className="num total">{formatCurrency(row.total)}</td>

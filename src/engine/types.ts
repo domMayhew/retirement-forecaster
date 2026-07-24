@@ -61,6 +61,16 @@ export interface RetirementPlan {
 }
 
 /**
+ * A manual override of one or both accumulation-year contributions for a
+ * specific age, entered directly in the results table rather than derived
+ * from the savings plan's segments. Either field may be set independently.
+ */
+export interface ContributionOverride {
+  rrspContribution?: number
+  tfsaContribution?: number
+}
+
+/**
  * The full set of user inputs plus global assumptions.
  */
 export interface ForecastInput {
@@ -71,6 +81,13 @@ export interface ForecastInput {
   rateOfReturn: number
   /** Age the projection runs to (inclusive). Default 100. */
   endAge: number
+  /**
+   * Per-age manual contribution overrides, keyed by age. Lets a saver hand-edit
+   * a specific year's RRSP/TFSA contribution in the results table instead of
+   * only through the savings-plan segments. Empty when the plan has no
+   * manual edits — i.e. the table is fully "in sync" with the segment inputs.
+   */
+  contributionOverrides: Record<number, ContributionOverride>
 }
 
 /**

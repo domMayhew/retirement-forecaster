@@ -387,6 +387,10 @@ table {
   min-width: 60px;
 }
 
+.results .cell-affix input {
+  min-width: 92px;
+}
+
 .row-invalid input {
   border-color: #e0245e;
 }
@@ -644,6 +648,18 @@ table {
 .cell-below-min {
   color: #b26a00;
   font-weight: 600;
+}
+
+/* A contribution cell the saver hand-edited, diverging from the segment-
+   derived amount the Plan inputs would otherwise produce. */
+.cell-overridden .cell-affix {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.swatch-overridden {
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
 }
 
 /* Column show/hide toggles above the projection table. */

@@ -53,6 +53,7 @@ function baseInput(): ForecastInput {
     },
     rateOfReturn: 0.10,
     endAge: 66,
+    contributionOverrides: {},
   }
 }
 
@@ -77,6 +78,60 @@ describe('runForecast: the accumulation year grows the opening balances', () => 
     expect(y64.rrsp).toBeCloseTo(110000, 6)
     expect(y64.tfsa).toBeCloseTo(110000, 6)
     expect(y64.total).toBeCloseTo(220000, 6)
+  })
+})
+
+describe('runForecast: manual contribution overrides replace the segment-derived amount for that age', () => {
+  it('overrides just the RRSP contribution, leaving TFSA computed normally', () => {
+    // Age 64 is the only accumulation year. Base plan contributes 0 to
+    // both; override RRSP to 10,000 -> (100,000 + 10,000) * 1.10 = 121,000.
+    // TFSA is untouched: (100,000 + 0) * 1.10 = 110,000, same as the base case.
+    const input = baseInput()
+    input.contributionOverrides = { 64: { rrspContribution: 10000 } }
+    const rows = runForecast(input)
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrspContribution).toBe(10000)
+    expect(y64.rrsp).toBeCloseTo(121000, 6)
+    expect(y64.tfsaContribution).toBe(0)
+    expect(y64.tfsa).toBeCloseTo(110000, 6)
+  })
+
+  it('overrides just the TFSA contribution, leaving RRSP computed normally', () => {
+    const input = baseInput()
+    input.contributionOverrides = { 64: { tfsaContribution: 5000 } }
+    const rows = runForecast(input)
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.tfsaContribution).toBe(5000)
+    expect(y64.tfsa).toBeCloseTo((100000 + 5000) * 1.1, 6)
+    expect(y64.rrspContribution).toBe(0)
+    expect(y64.rrsp).toBeCloseTo(110000, 6)
+  })
+
+  it('overrides both accounts at once', () => {
+    const input = baseInput()
+    input.contributionOverrides = { 64: { rrspContribution: 2000, tfsaContribution: 3000 } }
+    const rows = runForecast(input)
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrsp).toBeCloseTo((100000 + 2000) * 1.1, 6)
+    expect(y64.tfsa).toBeCloseTo((100000 + 3000) * 1.1, 6)
+  })
+
+  it('an override for an age that never occurs in the plan has no effect', () => {
+    const input = baseInput()
+    input.contributionOverrides = { 30: { rrspContribution: 999999 } }
+    const rows = runForecast(input)
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrsp).toBeCloseTo(110000, 6)
+  })
+
+  it('spends the overridden contribution against RRSP room, not the segment-derived one', () => {
+    const input = baseInput()
+    input.initial.currentRRSPRoom = 5000
+    input.initial.currentIncome = 0 // no accrual
+    input.contributionOverrides = { 64: { rrspContribution: 3000 } }
+    const rows = runForecast(input)
+    const y64 = rows.find((r) => r.age === 64)!
+    expect(y64.rrspRoom).toBeCloseTo(5000 - 3000, 6)
   })
 })
 
@@ -192,6 +247,7 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
       },
       rateOfReturn: 0,
       endAge: 43,
+      contributionOverrides: {},
     }
     const rows = runForecast(input)
     expect(rows.find((r) => r.age === 40)!.rrsp).toBeCloseTo(12000, 6)

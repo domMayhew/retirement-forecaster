@@ -381,11 +381,28 @@ export function runForecast(input: ForecastInput): Forecast {
   // --- Accumulation: currentAge .. retirementAge - 1 ---------------------
   for (let age = currentAge; age < retirementAge; age++) {
     const segment = activeSegmentForAge(age, savingsPlan)
-    const year = computeAccumulationYear(rrsp, tfsa, segment, incomeTaxRate, rateOfReturn)
+    const startRRSP = rrsp
+    const startTFSA = tfsa
+    const computed = computeAccumulationYear(startRRSP, startTFSA, segment, incomeTaxRate, rateOfReturn)
 
-    rrsp = year.rrsp
-    tfsa = year.tfsa
-    rrspRoom = rrspRoom + rrspRoomAccrual(initial.currentIncome) - year.rrspContribution
+    // A manual override (entered directly in the results table) replaces the
+    // segment-derived contribution for this specific age — it stands in for
+    // the whole "base contribution + reinvested refund" figure, bypassing
+    // the refund math entirely, then grows exactly like any other year.
+    const override = input.contributionOverrides[age]
+    const rrspContribution = override?.rrspContribution ?? computed.rrspContribution
+    const tfsaContribution = override?.tfsaContribution ?? computed.tfsaContribution
+
+    rrsp =
+      override?.rrspContribution !== undefined
+        ? (startRRSP + rrspContribution) * (1 + rateOfReturn)
+        : computed.rrsp
+    tfsa =
+      override?.tfsaContribution !== undefined
+        ? (startTFSA + tfsaContribution) * (1 + rateOfReturn)
+        : computed.tfsa
+
+    rrspRoom = rrspRoom + rrspRoomAccrual(initial.currentIncome) - rrspContribution
 
     rows.push({
       age,
@@ -393,8 +410,8 @@ export function runForecast(input: ForecastInput): Forecast {
       rrsp,
       tfsa,
       total: rrsp + tfsa,
-      rrspContribution: year.rrspContribution,
-      tfsaContribution: year.tfsaContribution,
+      rrspContribution,
+      tfsaContribution,
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
       withdrawalPct: 0,
