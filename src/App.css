@@ -772,6 +772,34 @@ table {
   stroke: none;
 }
 
+/* Chart title row: heading + an optional show/hide toggle beside it. */
+.chart-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.chart-title-row h2 {
+  margin-bottom: 0;
+}
+
+.chart-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chart-toggle input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
 /* Legend above a chart: color swatch + series name + ending value. */
 .chart-legend {
   display: flex;
