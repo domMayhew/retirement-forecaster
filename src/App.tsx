@@ -73,19 +73,10 @@ type Mode = 'plan' | 'results'
 function getStartupState(): { input: ForecastInput; activePlan: ActivePlan | null } {
   const defaultId = getDefaultPlanId()
   const defaultPlan = defaultId ? listSavedPlans().find((p) => p.id === defaultId) : undefined
-  if (defaultPlan) {
-    return {
-      input: withDefaults(defaultPlan.input),
-      activePlan: { id: defaultPlan.id, name: defaultPlan.name },
-    }
-  }
-  // No default plan to fall back on — start from the built-in values, but
-  // use the last rate of return the saver assumed, if any, rather than
-  // resetting to a fixed 5% every time.
-  const { rateOfReturn } = getSettings()
+  if (!defaultPlan) return { input: DEFAULT_INPUT, activePlan: null }
   return {
-    input: rateOfReturn === undefined ? DEFAULT_INPUT : { ...DEFAULT_INPUT, rateOfReturn },
-    activePlan: null,
+    input: withDefaults(defaultPlan.input),
+    activePlan: { id: defaultPlan.id, name: defaultPlan.name },
   }
 }
 
@@ -93,6 +84,18 @@ function App() {
   const [input, setInput] = useState<ForecastInput>(() => getStartupState().input)
   const [mode, setMode] = useState<Mode>('plan')
   const [activePlan, setActivePlan] = useState<ActivePlan | null>(() => getStartupState().activePlan)
+  // The assumed rate of return is a global setting, not part of any one
+  // plan: it persists across reloads and stays put across loading a
+  // different plan, instead of getting overwritten by whatever rate that
+  // plan happened to be saved with.
+  const [rateOfReturn, setRateOfReturn] = useState<number>(
+    () => getSettings().rateOfReturn ?? DEFAULT_INPUT.rateOfReturn,
+  )
+
+  function changeRateOfReturn(rate: number) {
+    setRateOfReturn(rate)
+    updateSettings({ rateOfReturn: rate })
+  }
 
   function patchInitial(patch: Partial<InitialConditions>) {
     setInput((prev) => ({ ...prev, initial: { ...prev.initial, ...patch } }))
@@ -144,6 +147,10 @@ function App() {
     setMode('results')
   }
 
+  // The full engine input: everything the saver edits, plus the globally
+  // assumed rate of return layered on top (never the other way around).
+  const effectiveInput = useMemo(() => ({ ...input, rateOfReturn }), [input, rateOfReturn])
+
   // Only feed the engine a valid (strictly-increasing) savings plan; otherwise
   // hold the last-known-good render rather than crashing on bad input.
   const segmentErrors = validateSegments(input.savingsPlan)
@@ -152,11 +159,11 @@ function App() {
   const forecast = useMemo(() => {
     if (!planIsValid) return []
     try {
-      return runForecast(input)
+      return runForecast(effectiveInput)
     } catch {
       return []
     }
-  }, [input, planIsValid])
+  }, [effectiveInput, planIsValid])
 
   // The first age (if any) where the plan contributes more RRSP than the
   // saver has room for.
@@ -211,7 +218,7 @@ function App() {
             </p>
           )}
           <SavedPlans
-            currentInput={input}
+            currentInput={effectiveInput}
             canSave={planIsValid}
             activePlan={activePlan}
             onLoad={loadPlan}
@@ -270,12 +277,9 @@ function App() {
           )}
 
           <GlobalAssumptionsForm
-            rateOfReturn={input.rateOfReturn}
+            rateOfReturn={rateOfReturn}
             endAge={input.endAge}
-            onRateChange={(rateOfReturn) => {
-              setInput((prev) => ({ ...prev, rateOfReturn }))
-              updateSettings({ rateOfReturn })
-            }}
+            onRateChange={changeRateOfReturn}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
           />
           <SavingsChart forecast={forecast} />
