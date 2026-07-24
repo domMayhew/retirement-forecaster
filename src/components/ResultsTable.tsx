@@ -12,9 +12,18 @@ interface Props {
   onRecalculate: () => void
 }
 
-type ColumnGroup = 'contributions' | 'rrsp' | 'tfsa' | 'totalPct' | 'cpp' | 'oas' | 'incomeMix'
+type ColumnGroup =
+  | 'returnRate'
+  | 'contributions'
+  | 'rrsp'
+  | 'tfsa'
+  | 'totalPct'
+  | 'cpp'
+  | 'oas'
+  | 'incomeMix'
 
 const COLUMN_GROUPS: { key: ColumnGroup; label: string }[] = [
+  { key: 'returnRate', label: 'Applied return' },
   { key: 'contributions', label: 'Contributions' },
   { key: 'rrsp', label: 'RRSP' },
   { key: 'tfsa', label: 'TFSA' },
@@ -52,9 +61,10 @@ export function ResultsTable({
   onWithdrawalOverride,
   onRecalculate,
 }: Props) {
-  // Contributions are usually only interesting while actively editing them;
-  // hide that group by default to keep the table's first impression cleaner.
-  const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set(['contributions']))
+  // Contributions and the per-year applied return are usually only
+  // interesting in specific moments (editing, checking variability); hide
+  // them by default to keep the table's first impression cleaner.
+  const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set(['contributions', 'returnRate']))
   const [showSavingYears, setShowSavingYears] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -148,6 +158,15 @@ export function ResultsTable({
             <tr>
               <th rowSpan={2}>Age</th>
               <th rowSpan={2}>Phase</th>
+              {show('returnRate') && (
+                <th
+                  className="num"
+                  rowSpan={2}
+                  title="The rate of return actually applied to grow this year's balance — flat unless variability is in play, in which case it's this year's sampled value."
+                >
+                  Return
+                </th>
+              )}
               {show('contributions') && (
                 <th className="num" colSpan={2}>Contributions</th>
               )}
@@ -236,6 +255,7 @@ export function ResultsTable({
                       {row.shortfall ? ' · shortfall' : ''}
                     </span>
                   </td>
+                  {show('returnRate') && <td className="num">{pct(row.appliedRateOfReturn)}</td>}
                   {show('contributions') &&
                     (!canEditContribution ? (
                       <>

@@ -2,6 +2,7 @@
 // (for its initial/startup state) and by the comparison feature (to safely
 // load any saved plan regardless of which app version saved it).
 import type { ForecastInput } from './engine/types'
+import { randomSeed } from './engine/variability'
 
 // Sensible defaults so the app shows something immediately on load.
 export const DEFAULT_INPUT: ForecastInput = {
@@ -32,6 +33,9 @@ export const DEFAULT_INPUT: ForecastInput = {
     retirementTaxRate: 0.15,
   },
   rateOfReturn: 0.05,
+  bestYearReturn: 0.05,
+  worstYearReturn: 0.05,
+  seed: 1,
   endAge: 100,
   reinvestForcedWithdrawals: true,
   contributionOverrides: {},
@@ -47,5 +51,9 @@ export function withDefaults(saved: ForecastInput): ForecastInput {
     ...saved,
     initial: { ...DEFAULT_INPUT.initial, ...saved.initial },
     retirement: { ...DEFAULT_INPUT.retirement, ...saved.retirement },
+    // A plan saved before variability existed has no seed of its own — give
+    // it a fresh random one rather than always replaying DEFAULT_INPUT's.
+    // Once the plan is saved again, that seed sticks like any other field.
+    seed: saved.seed ?? randomSeed(),
   }
 }

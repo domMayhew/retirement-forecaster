@@ -8,6 +8,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { runForecast, RRSP_ANNUAL_DOLLAR_LIMIT } from './forecast'
+import { yearlyReturns } from './variability'
 import type { ForecastInput, SavingsPlanSegment } from './types'
 
 function seg(over: Partial<SavingsPlanSegment> = {}): SavingsPlanSegment {
@@ -52,6 +53,9 @@ function baseInput(): ForecastInput {
       retirementTaxRate: 0.20,
     },
     rateOfReturn: 0.10,
+    bestYearReturn: 0.10,
+    worstYearReturn: 0.10,
+    seed: 1,
     endAge: 66,
     reinvestForcedWithdrawals: true,
     contributionOverrides: {},
@@ -318,6 +322,9 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
         retirementTaxRate: 0.15,
       },
       rateOfReturn: 0,
+      bestYearReturn: 0,
+      worstYearReturn: 0,
+      seed: 1,
       endAge: 43,
       reinvestForcedWithdrawals: true,
       contributionOverrides: {},
@@ -389,6 +396,9 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         retirementTaxRate: 0.15,
       },
       rateOfReturn: 0,
+      bestYearReturn: 0,
+      worstYearReturn: 0,
+      seed: 1,
       endAge: 95,
       reinvestForcedWithdrawals,
       contributionOverrides: {},
@@ -464,6 +474,9 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         retirementTaxRate: 0.15,
       },
       rateOfReturn: 0.5,
+      bestYearReturn: 0.5,
+      worstYearReturn: 0.5,
+      seed: 1,
       endAge: 100,
       reinvestForcedWithdrawals: true,
       contributionOverrides: {},
@@ -517,5 +530,73 @@ describe('runForecast: RRSP contribution room accrues and is spent by contributi
     const y66 = rows.find((r) => r.age === 66)!
     expect(y65.rrspRoom).toBeCloseTo(25000, 6)
     expect(y66.rrspRoom).toBeCloseTo(25000, 6)
+  })
+})
+
+describe('runForecast: variability applies a per-year sampled rate instead of a flat one', () => {
+  it('reports the flat rate as appliedRateOfReturn on every row when best/worst equal the average', () => {
+    // baseInput() has bestYearReturn === worstYearReturn === rateOfReturn (0.10) — degenerate, no variability.
+    const rows = runForecast(baseInput())
+    expect(rows.every((r) => r.appliedRateOfReturn === 0.1)).toBe(true)
+  })
+
+  it("matches the standalone yearlyReturns sequence exactly, aligned across the accumulation/retirement boundary", () => {
+    const input = baseInput()
+    input.initial.currentAge = 60
+    input.initial.retirementAge = 65
+    input.endAge = 70
+    input.bestYearReturn = 0.3
+    input.worstYearReturn = -0.2
+    input.seed = 777
+
+    const rows = runForecast(input)
+    const expectedRates = yearlyReturns(
+      input.seed,
+      input.endAge - input.initial.currentAge + 1,
+      input.rateOfReturn,
+      input.worstYearReturn,
+      input.bestYearReturn,
+    )
+    expect(rows.map((r) => r.appliedRateOfReturn)).toEqual(expectedRates)
+    // Sanity: ages run contiguously from currentAge to endAge with no gaps,
+    // so the index alignment above is meaningful, not coincidental.
+    expect(rows.map((r) => r.age)).toEqual([60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70])
+  })
+
+  it('produces the same forecast for the same seed, and a different one for a different seed', () => {
+    const inputA = baseInput()
+    inputA.bestYearReturn = 0.3
+    inputA.worstYearReturn = -0.2
+    inputA.seed = 1
+
+    const inputB = { ...inputA, seed: 1 }
+    const inputC = { ...inputA, seed: 2 }
+
+    const rowsA = runForecast(inputA)
+    const rowsB = runForecast(inputB)
+    const rowsC = runForecast(inputC)
+
+    expect(rowsA.map((r) => r.total)).toEqual(rowsB.map((r) => r.total))
+    expect(rowsA.map((r) => r.total)).not.toEqual(rowsC.map((r) => r.total))
+  })
+
+  it('never applies a rate outside the configured [worst, best] bounds', () => {
+    const input = baseInput()
+    input.initial.currentAge = 30
+    input.endAge = 100
+    input.bestYearReturn = 0.25
+    input.worstYearReturn = -0.15
+    input.seed = 42
+
+    const rows = runForecast(input)
+    for (const row of rows) {
+      expect(row.appliedRateOfReturn).toBeGreaterThanOrEqual(-0.15)
+      expect(row.appliedRateOfReturn).toBeLessThanOrEqual(0.25)
+    }
+    // With 70+ sampled years spanning a wide range, at least some should
+    // meaningfully differ from the flat average — otherwise variability
+    // silently isn't being applied at all.
+    const distinctRates = new Set(rows.map((r) => r.appliedRateOfReturn.toFixed(6)))
+    expect(distinctRates.size).toBeGreaterThan(1)
   })
 })

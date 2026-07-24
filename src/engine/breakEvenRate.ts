@@ -20,9 +20,23 @@ export const MIN_RATE_SEARCH_UPPER = 0.5
 const TOLERANCE = 0.0005
 const MAX_ITERATIONS = 40
 
-/** Whether this plan's savings cover the required income all the way through endAge at the given assumed rate of return. */
+/**
+ * Whether this plan's savings cover the required income all the way through
+ * endAge at the given assumed rate of return.
+ *
+ * Deliberately flattens the plan's own variability (best/worst-year bounds)
+ * to the candidate rate itself. "Minimum return needed" is a flat-rate
+ * question — with variability left in, a lucky or unlucky year-to-year
+ * sequence could survive or fail independent of the candidate average,
+ * which would break the monotonicity the binary search below depends on.
+ */
 export function survivesThroughEndAge(input: ForecastInput, rateOfReturn: number): boolean {
-  const forecast = runForecast({ ...input, rateOfReturn })
+  const forecast = runForecast({
+    ...input,
+    rateOfReturn,
+    bestYearReturn: rateOfReturn,
+    worstYearReturn: rateOfReturn,
+  })
   return forecast.length > 0 && !forecast.some((row) => row.shortfall)
 }
 

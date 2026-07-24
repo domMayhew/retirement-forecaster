@@ -93,6 +93,8 @@ export function setDefaultPlanId(id: string | null): void {
  */
 export interface PersistedSettings {
   rateOfReturn?: number
+  bestYearReturn?: number
+  worstYearReturn?: number
 }
 
 export function getSettings(): PersistedSettings {

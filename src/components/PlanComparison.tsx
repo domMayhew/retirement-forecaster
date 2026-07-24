@@ -11,8 +11,10 @@ import type { SavedPlan } from '../utils/storage'
 
 interface Props {
   plans: SavedPlan[]
-  /** The app's current global assumed rate of return — applied uniformly to every compared plan, overriding whatever rate each plan happened to be saved with. */
+  /** The app's current global rate-of-return assumptions — applied uniformly to every compared plan, overriding whatever each plan happened to be saved with. Each plan's own seed is preserved, though, so its variability (if any) still replays its own sequence. */
   rateOfReturn: number
+  bestYearReturn: number
+  worstYearReturn: number
   onRateChange: (rate: number) => void
 }
 
@@ -35,10 +37,16 @@ function minRateLabel(input: ForecastInput): string {
   return pct(result.rate)
 }
 
-export function PlanComparison({ plans, rateOfReturn, onRateChange }: Props) {
+export function PlanComparison({
+  plans,
+  rateOfReturn,
+  bestYearReturn,
+  worstYearReturn,
+  onRateChange,
+}: Props) {
   const compared = useMemo<ComparedPlan[]>(() => {
     return plans.flatMap((plan) => {
-      const input = { ...withDefaults(plan.input), rateOfReturn }
+      const input = { ...withDefaults(plan.input), rateOfReturn, bestYearReturn, worstYearReturn }
       if (validateSegments(input.savingsPlan).some(Boolean)) return []
       try {
         const forecast = runForecast(input)
@@ -48,7 +56,7 @@ export function PlanComparison({ plans, rateOfReturn, onRateChange }: Props) {
         return []
       }
     })
-  }, [plans, rateOfReturn])
+  }, [plans, rateOfReturn, bestYearReturn, worstYearReturn])
 
   const rateControl = (
     <section className="card">

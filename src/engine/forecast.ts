@@ -24,6 +24,7 @@ import type {
   RetirementPlan,
   SavingsPlanSegment,
 } from './types'
+import { yearlyReturns } from './variability'
 
 // --- Defaults -------------------------------------------------------------
 // The UI is expected to pass fully-populated objects, but these keep the pure
@@ -380,12 +381,19 @@ export function activeSegmentForAge(
  * retired and begins drawing down.
  */
 export function runForecast(input: ForecastInput): Forecast {
-  const { initial, savingsPlan, retirement, rateOfReturn, endAge } = input
+  const { initial, savingsPlan, retirement, rateOfReturn, bestYearReturn, worstYearReturn, seed, endAge } = input
   const { currentAge, retirementAge, incomeTaxRate } = initial
 
   const requiredAnnualIncome = retirement.requiredMonthlyIncome * 12
 
   const rows: ForecastYear[] = []
+
+  // One rate per projected year (currentAge..endAge inclusive), sampled once
+  // up front so the same seed always reproduces the same sequence regardless
+  // of how the two phases below are indexed into it.
+  const totalYears = endAge - currentAge + 1
+  const rates = yearlyReturns(seed, totalYears, rateOfReturn, worstYearReturn, bestYearReturn)
+  const rateForAge = (age: number) => rates[age - currentAge]
 
   let rrsp = initial.currentRRSP
   let tfsa = initial.currentTFSA
@@ -394,9 +402,10 @@ export function runForecast(input: ForecastInput): Forecast {
   // --- Accumulation: currentAge .. retirementAge - 1 ---------------------
   for (let age = currentAge; age < retirementAge; age++) {
     const segment = activeSegmentForAge(age, savingsPlan)
+    const yearRate = rateForAge(age)
     const startRRSP = rrsp
     const startTFSA = tfsa
-    const computed = computeAccumulationYear(startRRSP, startTFSA, segment, incomeTaxRate, rateOfReturn)
+    const computed = computeAccumulationYear(startRRSP, startTFSA, segment, incomeTaxRate, yearRate)
 
     // A manual override (entered directly in the results table) replaces the
     // segment-derived contribution for this specific age — it stands in for
@@ -408,11 +417,11 @@ export function runForecast(input: ForecastInput): Forecast {
 
     rrsp =
       override?.rrspContribution !== undefined
-        ? (startRRSP + rrspContribution) * (1 + rateOfReturn)
+        ? (startRRSP + rrspContribution) * (1 + yearRate)
         : computed.rrsp
     tfsa =
       override?.tfsaContribution !== undefined
-        ? (startTFSA + tfsaContribution) * (1 + rateOfReturn)
+        ? (startTFSA + tfsaContribution) * (1 + yearRate)
         : computed.tfsa
 
     rrspRoom = rrspRoom + rrspRoomAccrual(initial.currentIncome) - rrspContribution
@@ -420,6 +429,7 @@ export function runForecast(input: ForecastInput): Forecast {
     rows.push({
       age,
       phase: 'accumulation',
+      appliedRateOfReturn: yearRate,
       rrsp,
       tfsa,
       total: rrsp + tfsa,
@@ -447,6 +457,7 @@ export function runForecast(input: ForecastInput): Forecast {
   // --- Retirement: retirementAge .. endAge (inclusive) -------------------
   const taxRate = retirement.retirementTaxRate
   for (let age = retirementAge; age <= endAge; age++) {
+    const yearRate = rateForAge(age)
     // CPP/OAS are entered PRE-TAX and taxed at the retirement rate, so only
     // their after-tax value counts toward the required (after-tax) income.
     const cpp = cppForAge(age, retirement)
@@ -499,8 +510,8 @@ export function runForecast(input: ForecastInput): Forecast {
     // Growth applies AFTER withdrawal (flow first, then grow). Any
     // reinvested surplus flows back in as a TFSA contribution instead of
     // reaching the saver as spendable cash.
-    rrsp = (startRRSP - rrspWithdrawal) * (1 + rateOfReturn)
-    tfsa = (startTFSA - tfsaWithdrawal + reinvestedSurplus) * (1 + rateOfReturn)
+    rrsp = (startRRSP - rrspWithdrawal) * (1 + yearRate)
+    tfsa = (startTFSA - tfsaWithdrawal + reinvestedSurplus) * (1 + yearRate)
 
     const totalIncome = netFromSavings + cppAfterTax + oasAfterTax
     // A cent of float slop shouldn't read as a shortfall.
@@ -509,6 +520,7 @@ export function runForecast(input: ForecastInput): Forecast {
     rows.push({
       age,
       phase: 'retirement',
+      appliedRateOfReturn: yearRate,
       rrsp,
       tfsa,
       total: rrsp + tfsa,

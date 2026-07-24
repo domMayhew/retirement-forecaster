@@ -21,6 +21,7 @@ import { PlanComparison } from './components/PlanComparison'
 import { getDefaultPlanId, getSettings, listSavedPlans, updateSettings, type SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
 import { DEFAULT_INPUT, withDefaults } from './defaultInput'
+import { randomSeed } from './engine/variability'
 import './App.css'
 
 type Mode = 'plan' | 'results' | 'compare'
@@ -30,7 +31,11 @@ type Mode = 'plan' | 'results' | 'compare'
 function getStartupState(): { input: ForecastInput; activePlan: ActivePlan | null } {
   const defaultId = getDefaultPlanId()
   const defaultPlan = defaultId ? listSavedPlans().find((p) => p.id === defaultId) : undefined
-  if (!defaultPlan) return { input: DEFAULT_INPUT, activePlan: null }
+  if (!defaultPlan) {
+    // A brand-new, never-saved plan deserves a fresh roll of the dice rather
+    // than literally the same hardcoded seed every time the app starts cold.
+    return { input: { ...DEFAULT_INPUT, seed: randomSeed() }, activePlan: null }
+  }
   return {
     input: withDefaults(defaultPlan.input),
     activePlan: { id: defaultPlan.id, name: defaultPlan.name },
@@ -49,10 +54,35 @@ function App() {
   const [rateOfReturn, setRateOfReturn] = useState<number>(
     () => getSettings().rateOfReturn ?? DEFAULT_INPUT.rateOfReturn,
   )
+  // Best/worst-year bounds for return variability are global assumptions
+  // too, right alongside the average rate — same persistence, same reasoning.
+  const [bestYearReturn, setBestYearReturn] = useState<number>(
+    () => getSettings().bestYearReturn ?? DEFAULT_INPUT.bestYearReturn,
+  )
+  const [worstYearReturn, setWorstYearReturn] = useState<number>(
+    () => getSettings().worstYearReturn ?? DEFAULT_INPUT.worstYearReturn,
+  )
 
   function changeRateOfReturn(rate: number) {
     setRateOfReturn(rate)
     updateSettings({ rateOfReturn: rate })
+  }
+
+  function changeBestYearReturn(rate: number) {
+    setBestYearReturn(rate)
+    updateSettings({ bestYearReturn: rate })
+  }
+
+  function changeWorstYearReturn(rate: number) {
+    setWorstYearReturn(rate)
+    updateSettings({ worstYearReturn: rate })
+  }
+
+  // Unlike the settings above, the seed is per-plan — it's what "save the
+  // seed with the plan" means — so re-rolling it just edits `input` like any
+  // other plan field, instead of touching the global settings store.
+  function reForecast() {
+    setInput((prev) => ({ ...prev, seed: randomSeed() }))
   }
 
   function patchInitial(patch: Partial<InitialConditions>) {
@@ -111,8 +141,13 @@ function App() {
   }
 
   // The full engine input: everything the saver edits, plus the globally
-  // assumed rate of return layered on top (never the other way around).
-  const effectiveInput = useMemo(() => ({ ...input, rateOfReturn }), [input, rateOfReturn])
+  // assumed rate-of-return assumptions layered on top (never the other way
+  // around). The seed is deliberately NOT included here — it stays whatever
+  // `input.seed` already is, since it's per-plan, not global.
+  const effectiveInput = useMemo(
+    () => ({ ...input, rateOfReturn, bestYearReturn, worstYearReturn }),
+    [input, rateOfReturn, bestYearReturn, worstYearReturn],
+  )
 
   // Only feed the engine a valid (strictly-increasing) savings plan; otherwise
   // hold the last-known-good render rather than crashing on bad input.
@@ -240,6 +275,8 @@ function App() {
           <PlanComparison
             plans={comparePlans}
             rateOfReturn={rateOfReturn}
+            bestYearReturn={bestYearReturn}
+            worstYearReturn={worstYearReturn}
             onRateChange={changeRateOfReturn}
           />
         </div>
@@ -260,9 +297,15 @@ function App() {
 
           <GlobalAssumptionsForm
             rateOfReturn={rateOfReturn}
+            bestYearReturn={bestYearReturn}
+            worstYearReturn={worstYearReturn}
             endAge={input.endAge}
+            seed={input.seed}
             onRateChange={changeRateOfReturn}
+            onBestYearReturnChange={changeBestYearReturn}
+            onWorstYearReturnChange={changeWorstYearReturn}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
+            onReForecast={reForecast}
           />
           <ResultsSummary forecast={forecast} input={effectiveInput} />
           <SavingsChart forecast={forecast} />

@@ -88,8 +88,23 @@ export interface ForecastInput {
   initial: InitialConditions
   savingsPlan: SavingsPlanSegment[]
   retirement: RetirementPlan
-  /** Assumed annual rate of return, applied to both RRSP and TFSA. */
+  /** Assumed AVERAGE annual rate of return, applied to both RRSP and TFSA. */
   rateOfReturn: number
+  /**
+   * Upper bound for a given year's return under the variability model —
+   * rarely hit exactly, since actual per-year returns taper off toward it.
+   * Equal to `rateOfReturn` (the default) means no variability: every year
+   * gets the flat average rate.
+   */
+  bestYearReturn: number
+  /** Lower bound for a given year's return under the variability model — see `bestYearReturn`. */
+  worstYearReturn: number
+  /**
+   * Seed for the reproducible pseudo-random sequence of per-year returns.
+   * Stable across reloads (so the same plan always replays the same
+   * sequence); only "Re-forecast" rolls a new one.
+   */
+  seed: number
   /** Age the projection runs to (inclusive). Default 100. */
   endAge: number
   /**
@@ -122,6 +137,8 @@ export interface ForecastInput {
 export interface ForecastYear {
   age: number
   phase: 'accumulation' | 'retirement'
+  /** The actual rate of return applied to grow this year's balance — the flat `rateOfReturn` unless variability is in play, in which case it's this year's sampled value. */
+  appliedRateOfReturn: number
 
   // End-of-year balances.
   rrsp: number
