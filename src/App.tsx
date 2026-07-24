@@ -13,6 +13,7 @@ import { GlobalAssumptionsForm } from './components/GlobalAssumptionsForm'
 import { ResultsTable } from './components/ResultsTable'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
+import { SavedPlans } from './components/SavedPlans'
 import { formatCurrency } from './utils/format'
 import './App.css'
 
@@ -48,6 +49,18 @@ const DEFAULT_INPUT: ForecastInput = {
   endAge: 100,
 }
 
+// Defends against saved plans from an earlier version of the app that are
+// missing fields a newer schema added, so loading one can't hand the engine
+// undefined numbers.
+function withDefaults(saved: ForecastInput): ForecastInput {
+  return {
+    ...DEFAULT_INPUT,
+    ...saved,
+    initial: { ...DEFAULT_INPUT.initial, ...saved.initial },
+    retirement: { ...DEFAULT_INPUT.retirement, ...saved.retirement },
+  }
+}
+
 type Mode = 'plan' | 'results'
 
 function App() {
@@ -64,6 +77,11 @@ function App() {
 
   function setSegments(savingsPlan: SavingsPlanSegment[]) {
     setInput((prev) => ({ ...prev, savingsPlan }))
+  }
+
+  function loadPlan(saved: ForecastInput) {
+    setInput(withDefaults(saved))
+    setMode('results')
   }
 
   // Only feed the engine a valid (strictly-increasing) savings plan; otherwise
@@ -132,6 +150,7 @@ function App() {
               updated results.
             </p>
           )}
+          <SavedPlans currentInput={input} canSave={planIsValid} onLoad={loadPlan} />
           <div className="plan-grid">
             <div className="plan-cell plan-cell-initial">
               <InitialConditionsForm value={input.initial} onChange={patchInitial} />
