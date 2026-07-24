@@ -310,10 +310,27 @@ input[type='text']:focus {
   overflow-x: auto;
 }
 
+/* The projection table can run to 60+ rows. Bound its height and scroll it
+   internally so the sticky header (below) actually stays put — a sticky
+   element only sticks within its nearest scrolling ancestor, and without
+   this the ancestor was the whole page. */
+.results-scroll {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
 table {
   border-collapse: collapse;
   width: 100%;
   font-size: 14px;
+}
+
+/* border-collapse: collapse breaks opaque backgrounds on sticky <th> cells
+   (the scrolled body rows show through) — the results table scrolls
+   vertically with a frozen header, so it needs separated borders instead. */
+.results {
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .segments th,
@@ -420,12 +437,37 @@ table {
   white-space: nowrap;
 }
 
+/* Stick the whole two-row <thead> as one unit rather than each row
+   independently — stickying each row to its own hardcoded top offset left a
+   seam where scrolled body rows bled through at the boundary between them. */
+.results thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* The <thead> box itself must be opaque, not just its <th> children —
+     sub-pixel column-width rounding under a colspan cell can otherwise leave
+     a seam that the scrolled-under row bleeds through. */
+  background: var(--bg);
+}
+
+/* Fractional row heights mean the sticky header's composited bottom edge can
+   land a hair off the first body row's top edge, leaving a sub-pixel seam.
+   An opaque strip just past the boundary, painted in the header's own
+   layer, covers it. */
+.results thead::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 2px;
+  background: var(--bg);
+}
+
 .results th {
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
-  position: sticky;
-  top: 0;
   background: var(--bg);
 }
 
@@ -471,7 +513,6 @@ table {
   font-weight: 500;
   color: var(--text);
   opacity: 0.8;
-  top: 31px; /* sits below the group-header row when scrolling */
 }
 
 /* Retirement years whose withdrawal is below the 5% RRSP minimum. */

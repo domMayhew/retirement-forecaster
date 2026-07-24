@@ -52,7 +52,7 @@ export function ResultsTable({ forecast }: Props) {
         <span className="swatch swatch-shortfall" /> Shortfall — savings could
         not fully cover the required income.
       </p>
-      <div className="table-scroll">
+      <div className="table-scroll results-scroll">
         <table className="results">
           <thead>
             <tr>
