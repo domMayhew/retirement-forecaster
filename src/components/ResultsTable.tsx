@@ -48,6 +48,7 @@ export function ResultsTable({
 }: Props) {
   const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set())
   const [showSavingYears, setShowSavingYears] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   function toggleGroup(key: ColumnGroup) {
     setHidden((prev) => {
@@ -87,16 +88,26 @@ export function ResultsTable({
     <section className="card">
       <div className="section-title-row">
         <h2>Projection</h2>
-        {hasRetirementYears && (
-          <label className="section-toggle">
-            <input
-              type="checkbox"
-              checked={showSavingYears}
-              onChange={(e) => setShowSavingYears(e.target.checked)}
-            />
-            Show saving years too
-          </label>
-        )}
+        <div className="section-title-actions">
+          {hasRetirementYears && (
+            <label className="section-toggle">
+              <input
+                type="checkbox"
+                checked={showSavingYears}
+                onChange={(e) => setShowSavingYears(e.target.checked)}
+              />
+              Show saving years too
+            </label>
+          )}
+          <button
+            type="button"
+            className={isEditing ? 'btn-edit-toggle active' : 'btn-edit-toggle'}
+            aria-pressed={isEditing}
+            onClick={() => setIsEditing((v) => !v)}
+          >
+            {isEditing ? 'Done editing' : 'Edit values'}
+          </button>
+        </div>
       </div>
       <div className="column-toggles" role="group" aria-label="Show/hide table columns">
         <span className="column-toggles-label">Show:</span>
@@ -202,12 +213,7 @@ export function ResultsTable({
           <tbody>
             {visibleRows.map((row) => {
               const forced = row.forcedMinimumWithdrawal
-              const classes = [
-                row.shortfall ? 'row-shortfall' : '',
-                forced ? 'row-below-min' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')
+              const classes = row.shortfall ? 'row-shortfall' : undefined
               const rrspNet = row.rrspWithdrawal - row.taxPaid
               const hasIncome = row.netFromSavings > 0 || row.cppAfterTax > 0 || row.oasAfterTax > 0
               const contributionOverride = contributionOverrides[row.age]
@@ -215,7 +221,7 @@ export function ResultsTable({
               const canEditContribution = row.phase === 'accumulation'
               const canEditWithdrawal = row.phase === 'retirement'
               return (
-                <tr key={row.age} className={classes || undefined}>
+                <tr key={row.age} className={classes}>
                   <td>{row.age}</td>
                   <td>
                     <span className={`phase phase-${row.phase}`}>
@@ -224,7 +230,12 @@ export function ResultsTable({
                     </span>
                   </td>
                   {show('contributions') &&
-                    (canEditContribution ? (
+                    (!canEditContribution ? (
+                      <>
+                        <td className="num">—</td>
+                        <td className="num">—</td>
+                      </>
+                    ) : isEditing ? (
                       <>
                         <td className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
                           <div className="cell-affix">
@@ -255,8 +266,12 @@ export function ResultsTable({
                       </>
                     ) : (
                       <>
-                        <td className="num">—</td>
-                        <td className="num">—</td>
+                        <td className={`num${contributionOverride?.rrspContribution !== undefined ? ' cell-overridden' : ''}`}>
+                          {money(row.rrspContribution)}
+                        </td>
+                        <td className={`num${contributionOverride?.tfsaContribution !== undefined ? ' cell-overridden' : ''}`}>
+                          {money(row.tfsaContribution)}
+                        </td>
                       </>
                     ))}
                   {show('rrsp') && <td className="num">{formatCurrency(row.rrsp)}</td>}
@@ -265,7 +280,7 @@ export function ResultsTable({
                   {show('rrsp') && (
                     <>
                       <td className={`num${withdrawalOverride?.rrspWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
-                        {canEditWithdrawal ? (
+                        {canEditWithdrawal && isEditing ? (
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput
@@ -290,7 +305,7 @@ export function ResultsTable({
                   {show('tfsa') && (
                     <>
                       <td className={`num${withdrawalOverride?.tfsaWithdrawal !== undefined ? ' cell-overridden' : ''}`}>
-                        {canEditWithdrawal ? (
+                        {canEditWithdrawal && isEditing ? (
                           <div className="cell-affix">
                             <span className="affix">$</span>
                             <BareNumberInput

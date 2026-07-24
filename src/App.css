@@ -669,13 +669,8 @@ table {
   opacity: 0.8;
 }
 
-/* Retirement years whose withdrawal is below the 5% RRSP minimum. */
-.row-below-min {
-  background: rgba(230, 162, 60, 0.09);
-}
-.row-below-min:hover {
-  background: rgba(230, 162, 60, 0.16);
-}
+/* The RRSP % cell for a year where the RRIF minimum forced the withdrawal
+   higher than the plan otherwise needed — cell-level only, not the whole row. */
 .cell-below-min {
   color: #b26a00;
   font-weight: 600;
@@ -829,6 +824,31 @@ table {
 
 .section-toggle input[type='checkbox'] {
   accent-color: var(--accent);
+}
+
+.section-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-edit-toggle {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.btn-edit-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* Legend above a chart: color swatch + series name + ending value. */
