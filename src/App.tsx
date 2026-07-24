@@ -21,7 +21,7 @@ import { PlanComparison } from './components/PlanComparison'
 import { getDefaultPlanId, getSettings, listSavedPlans, updateSettings, type SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
 import { DEFAULT_INPUT, withDefaults } from './defaultInput'
-import { randomSeed } from './engine/variability'
+import { randomSeed, clampBounds } from './engine/variability'
 import './App.css'
 
 type Mode = 'plan' | 'results' | 'compare'
@@ -63,19 +63,33 @@ function App() {
     () => getSettings().worstYearReturn ?? DEFAULT_INPUT.worstYearReturn,
   )
 
+  // Worst <= average <= best always — moving any one of the three re-clamps
+  // the other two rather than letting the range invert or cross the average.
+  // Equal bounds (the default) mean no variability, and stay untouched.
   function changeRateOfReturn(rate: number) {
     setRateOfReturn(rate)
     updateSettings({ rateOfReturn: rate })
+    const { worst, best } = clampBounds(rate, worstYearReturn, bestYearReturn)
+    if (worst !== worstYearReturn) {
+      setWorstYearReturn(worst)
+      updateSettings({ worstYearReturn: worst })
+    }
+    if (best !== bestYearReturn) {
+      setBestYearReturn(best)
+      updateSettings({ bestYearReturn: best })
+    }
   }
 
   function changeBestYearReturn(rate: number) {
-    setBestYearReturn(rate)
-    updateSettings({ bestYearReturn: rate })
+    const { best } = clampBounds(rateOfReturn, worstYearReturn, rate)
+    setBestYearReturn(best)
+    updateSettings({ bestYearReturn: best })
   }
 
   function changeWorstYearReturn(rate: number) {
-    setWorstYearReturn(rate)
-    updateSettings({ worstYearReturn: rate })
+    const { worst } = clampBounds(rateOfReturn, rate, bestYearReturn)
+    setWorstYearReturn(worst)
+    updateSettings({ worstYearReturn: worst })
   }
 
   // Unlike the settings above, the seed is per-plan — it's what "save the

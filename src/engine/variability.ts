@@ -29,6 +29,20 @@ export function randomSeed(): number {
 }
 
 /**
+ * Keeps worst <= average <= best. Equal bounds (the default) mean no
+ * variability — a flat rate every year — so this only ever pulls worst DOWN
+ * to average or best UP to average, never the other way, and never breaks
+ * that degenerate case.
+ */
+export function clampBounds(
+  average: number,
+  worst: number,
+  best: number,
+): { worst: number; best: number } {
+  return { worst: Math.min(worst, average), best: Math.max(best, average) }
+}
+
+/**
  * One pseudo-random annual return: centered on `average`, bounded by (but not
  * guaranteed to reach) `worst` and `best`. Uses the sum of two draws from the
  * RNG (a triangular distribution over (-1, 1) that peaks at 0), so most years
@@ -43,9 +57,10 @@ export function yearlyReturn(
   best: number,
 ): number {
   // Guard against a misconfigured/inverted range (best below average, or
-  // worst above it) rather than letting it invert the skew.
-  const effectiveBest = Math.max(best, average)
-  const effectiveWorst = Math.min(worst, average)
+  // worst above it) rather than letting it invert the skew. The UI is
+  // expected to keep this from happening in the first place (see
+  // `clampBounds`), but the engine shouldn't trust that blindly.
+  const { worst: effectiveWorst, best: effectiveBest } = clampBounds(average, worst, best)
 
   const variate = rng() + rng() - 1 // triangular over (-1, 1), peak density at 0
   return variate >= 0

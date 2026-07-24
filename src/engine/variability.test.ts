@@ -2,7 +2,7 @@
 // bounded (but not guaranteed to reach) between worst and best.
 
 import { describe, it, expect } from 'vitest'
-import { mulberry32, yearlyReturn, yearlyReturns, randomSeed } from './variability'
+import { mulberry32, yearlyReturn, yearlyReturns, randomSeed, clampBounds } from './variability'
 
 describe('mulberry32: seeded PRNG', () => {
   it('is deterministic — the same seed always produces the same sequence', () => {
@@ -92,5 +92,27 @@ describe('yearlyReturns: a reproducible sequence', () => {
 describe('randomSeed', () => {
   it('produces an integer', () => {
     expect(Number.isInteger(randomSeed())).toBe(true)
+  })
+})
+
+describe('clampBounds: keeps worst <= average <= best', () => {
+  it('leaves an already-valid range untouched', () => {
+    expect(clampBounds(0.05, -0.1, 0.2)).toEqual({ worst: -0.1, best: 0.2 })
+  })
+
+  it('leaves the degenerate no-variability case (all equal) untouched', () => {
+    expect(clampBounds(0.05, 0.05, 0.05)).toEqual({ worst: 0.05, best: 0.05 })
+  })
+
+  it('pulls worst down to average when worst is above it', () => {
+    expect(clampBounds(0.05, 0.1, 0.2)).toEqual({ worst: 0.05, best: 0.2 })
+  })
+
+  it('pulls best up to average when best is below it', () => {
+    expect(clampBounds(0.05, -0.1, 0.02)).toEqual({ worst: -0.1, best: 0.05 })
+  })
+
+  it('corrects a fully inverted range (worst above best, both crossing average)', () => {
+    expect(clampBounds(0.05, 0.2, -0.1)).toEqual({ worst: 0.05, best: 0.05 })
   })
 })
