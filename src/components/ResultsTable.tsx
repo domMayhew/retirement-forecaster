@@ -46,7 +46,9 @@ export function ResultsTable({
   onWithdrawalOverride,
   onRecalculate,
 }: Props) {
-  const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set())
+  // Contributions are usually only interesting while actively editing them;
+  // hide that group by default to keep the table's first impression cleaner.
+  const [hidden, setHidden] = useState<Set<ColumnGroup>>(new Set(['contributions']))
   const [showSavingYears, setShowSavingYears] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 

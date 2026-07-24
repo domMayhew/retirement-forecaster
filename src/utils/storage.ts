@@ -4,6 +4,7 @@ import type { ForecastInput } from '../engine/types'
 
 const STORAGE_KEY = 'retirement-forecaster:saved-plans'
 const DEFAULT_PLAN_KEY = 'retirement-forecaster:default-plan-id'
+const SETTINGS_KEY = 'retirement-forecaster:settings'
 
 export interface SavedPlan {
   id: string
@@ -80,5 +81,34 @@ export function setDefaultPlanId(id: string | null): void {
     else localStorage.setItem(DEFAULT_PLAN_KEY, id)
   } catch {
     // Storage full or unavailable — nothing to fall back to here.
+  }
+}
+
+/**
+ * App-wide assumptions that persist independently of any saved plan — e.g.
+ * the assumed rate of return sticks around as "the last rate you assumed"
+ * even in a session that never touches Saved Plans at all. A saved/default
+ * plan's own rate still wins when that plan is loaded; this only seeds the
+ * built-in starter values.
+ */
+export interface PersistedSettings {
+  rateOfReturn?: number
+}
+
+export function getSettings(): PersistedSettings {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return typeof parsed === 'object' && parsed !== null ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+export function updateSettings(patch: Partial<PersistedSettings>): void {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...getSettings(), ...patch }))
+  } catch {
+    // Storage full or unavailable — the setting just won't stick this session.
   }
 }

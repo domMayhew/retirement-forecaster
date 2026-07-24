@@ -16,7 +16,7 @@ import { ResultsTable } from './components/ResultsTable'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
 import { SavedPlans, type ActivePlan } from './components/SavedPlans'
-import { getDefaultPlanId, listSavedPlans, type SavedPlan } from './utils/storage'
+import { getDefaultPlanId, getSettings, listSavedPlans, updateSettings, type SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
 import './App.css'
 
@@ -73,10 +73,19 @@ type Mode = 'plan' | 'results'
 function getStartupState(): { input: ForecastInput; activePlan: ActivePlan | null } {
   const defaultId = getDefaultPlanId()
   const defaultPlan = defaultId ? listSavedPlans().find((p) => p.id === defaultId) : undefined
-  if (!defaultPlan) return { input: DEFAULT_INPUT, activePlan: null }
+  if (defaultPlan) {
+    return {
+      input: withDefaults(defaultPlan.input),
+      activePlan: { id: defaultPlan.id, name: defaultPlan.name },
+    }
+  }
+  // No default plan to fall back on — start from the built-in values, but
+  // use the last rate of return the saver assumed, if any, rather than
+  // resetting to a fixed 5% every time.
+  const { rateOfReturn } = getSettings()
   return {
-    input: withDefaults(defaultPlan.input),
-    activePlan: { id: defaultPlan.id, name: defaultPlan.name },
+    input: rateOfReturn === undefined ? DEFAULT_INPUT : { ...DEFAULT_INPUT, rateOfReturn },
+    activePlan: null,
   }
 }
 
@@ -263,7 +272,10 @@ function App() {
           <GlobalAssumptionsForm
             rateOfReturn={input.rateOfReturn}
             endAge={input.endAge}
-            onRateChange={(rateOfReturn) => setInput((prev) => ({ ...prev, rateOfReturn }))}
+            onRateChange={(rateOfReturn) => {
+              setInput((prev) => ({ ...prev, rateOfReturn }))
+              updateSettings({ rateOfReturn })
+            }}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
           />
           <SavingsChart forecast={forecast} />
