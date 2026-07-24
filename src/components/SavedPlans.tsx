@@ -5,6 +5,8 @@ import {
   savePlan,
   deleteSavedPlan,
   updateSavedPlan,
+  getDefaultPlanId,
+  setDefaultPlanId,
   type SavedPlan,
 } from '../utils/storage'
 
@@ -36,6 +38,7 @@ function formatSavedAt(iso: string): string {
 export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActivePlanChange }: Props) {
   const [plans, setPlans] = useState<SavedPlan[]>(() => listSavedPlans())
   const [name, setName] = useState('')
+  const [defaultPlanId, setDefaultPlanIdState] = useState<string | null>(() => getDefaultPlanId())
 
   function handleSaveAsNew() {
     const trimmed = name.trim()
@@ -57,6 +60,13 @@ export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActive
     deleteSavedPlan(id)
     setPlans(listSavedPlans())
     if (activePlan?.id === id) onActivePlanChange(null)
+    if (defaultPlanId === id) setDefaultPlanIdState(null)
+  }
+
+  function toggleDefault(id: string) {
+    const next = defaultPlanId === id ? null : id
+    setDefaultPlanId(next)
+    setDefaultPlanIdState(next)
   }
 
   return (
@@ -107,27 +117,51 @@ export function SavedPlans({ currentInput, canSave, activePlan, onLoad, onActive
         <p className="empty">No saved plans yet.</p>
       ) : (
         <ul className="saved-plan-list">
-          {plans.map((plan) => (
-            <li key={plan.id} className="saved-plan-row">
-              <div className="saved-plan-info">
-                <span className="saved-plan-name">{plan.name}</span>
-                <span className="saved-plan-date">Saved {formatSavedAt(plan.savedAt)}</span>
-              </div>
-              <div className="saved-plan-actions">
-                <button type="button" className="btn-back" onClick={() => onLoad(plan)}>
-                  Load
-                </button>
-                <button
-                  type="button"
-                  className="btn-remove"
-                  aria-label={`Delete "${plan.name}"`}
-                  onClick={() => handleDelete(plan.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            </li>
-          ))}
+          {plans.map((plan) => {
+            const isDefault = plan.id === defaultPlanId
+            return (
+              <li key={plan.id} className="saved-plan-row">
+                <div className="saved-plan-info">
+                  <span className="saved-plan-name">
+                    {plan.name}
+                    {isDefault && <span className="default-badge">Default</span>}
+                  </span>
+                  <span className="saved-plan-date">Saved {formatSavedAt(plan.savedAt)}</span>
+                </div>
+                <div className="saved-plan-actions">
+                  <button
+                    type="button"
+                    className={isDefault ? 'btn-star active' : 'btn-star'}
+                    aria-pressed={isDefault}
+                    aria-label={
+                      isDefault
+                        ? `Unset "${plan.name}" as the default plan`
+                        : `Set "${plan.name}" as the default plan`
+                    }
+                    title={
+                      isDefault
+                        ? 'Loads automatically when the app starts — click to unset'
+                        : 'Set as the plan that loads automatically when the app starts'
+                    }
+                    onClick={() => toggleDefault(plan.id)}
+                  >
+                    {isDefault ? '★' : '☆'}
+                  </button>
+                  <button type="button" className="btn-back" onClick={() => onLoad(plan)}>
+                    Load
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-remove"
+                    aria-label={`Delete "${plan.name}"`}
+                    onClick={() => handleDelete(plan.id)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            )
+          })}
         </ul>
       )}
     </section>

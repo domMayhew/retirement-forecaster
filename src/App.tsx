@@ -16,7 +16,7 @@ import { ResultsTable } from './components/ResultsTable'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
 import { SavedPlans, type ActivePlan } from './components/SavedPlans'
-import type { SavedPlan } from './utils/storage'
+import { getDefaultPlanId, listSavedPlans, type SavedPlan } from './utils/storage'
 import { formatCurrency } from './utils/format'
 import './App.css'
 
@@ -68,10 +68,22 @@ function withDefaults(saved: ForecastInput): ForecastInput {
 
 type Mode = 'plan' | 'results'
 
+// If a saved plan has been marked as the default, load it instead of the
+// built-in starter values — that's the whole point of marking one.
+function getStartupState(): { input: ForecastInput; activePlan: ActivePlan | null } {
+  const defaultId = getDefaultPlanId()
+  const defaultPlan = defaultId ? listSavedPlans().find((p) => p.id === defaultId) : undefined
+  if (!defaultPlan) return { input: DEFAULT_INPUT, activePlan: null }
+  return {
+    input: withDefaults(defaultPlan.input),
+    activePlan: { id: defaultPlan.id, name: defaultPlan.name },
+  }
+}
+
 function App() {
-  const [input, setInput] = useState<ForecastInput>(DEFAULT_INPUT)
+  const [input, setInput] = useState<ForecastInput>(() => getStartupState().input)
   const [mode, setMode] = useState<Mode>('plan')
-  const [activePlan, setActivePlan] = useState<ActivePlan | null>(null)
+  const [activePlan, setActivePlan] = useState<ActivePlan | null>(() => getStartupState().activePlan)
 
   function patchInitial(patch: Partial<InitialConditions>) {
     setInput((prev) => ({ ...prev, initial: { ...prev.initial, ...patch } }))

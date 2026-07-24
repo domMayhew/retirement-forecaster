@@ -511,6 +511,18 @@ table {
   white-space: nowrap;
 }
 
+.default-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-border);
+  vertical-align: middle;
+}
+
 .saved-plan-date {
   font-size: 12px;
   color: var(--text);
@@ -526,6 +538,25 @@ table {
 .saved-plan-actions .btn-back {
   padding: 6px 12px;
   font-size: 13px;
+}
+
+.btn-star {
+  font: inherit;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.btn-star.active {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .validation {

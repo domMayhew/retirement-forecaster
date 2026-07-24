@@ -3,6 +3,7 @@
 import type { ForecastInput } from '../engine/types'
 
 const STORAGE_KEY = 'retirement-forecaster:saved-plans'
+const DEFAULT_PLAN_KEY = 'retirement-forecaster:default-plan-id'
 
 export interface SavedPlan {
   id: string
@@ -48,6 +49,7 @@ export function savePlan(name: string, input: ForecastInput): SavedPlan {
 
 export function deleteSavedPlan(id: string): void {
   writeAll(readAll().filter((p) => p.id !== id))
+  if (getDefaultPlanId() === id) setDefaultPlanId(null)
 }
 
 /** Overwrite an existing saved plan's input in place. Returns null if `id` isn't found. */
@@ -60,4 +62,23 @@ export function updateSavedPlan(id: string, input: ForecastInput): SavedPlan | n
   next[index] = updated
   writeAll(next)
   return updated
+}
+
+/** The saved plan (if any) that should load automatically when the app starts fresh. */
+export function getDefaultPlanId(): string | null {
+  try {
+    return localStorage.getItem(DEFAULT_PLAN_KEY)
+  } catch {
+    return null
+  }
+}
+
+/** Pass null to clear the default (fall back to the app's built-in starter values). */
+export function setDefaultPlanId(id: string | null): void {
+  try {
+    if (id === null) localStorage.removeItem(DEFAULT_PLAN_KEY)
+    else localStorage.setItem(DEFAULT_PLAN_KEY, id)
+  } catch {
+    // Storage full or unavailable — nothing to fall back to here.
+  }
 }
