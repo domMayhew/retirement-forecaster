@@ -851,6 +851,14 @@ table {
   color: #fff;
 }
 
+/* Caption clarifying what the legend's dollar figures are (the projection's
+   final year), so they don't read as "today" or some other unstated point. */
+.chart-subtitle {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--text);
+}
+
 /* Legend above a chart: color swatch + series name + ending value. */
 .chart-legend {
   display: flex;

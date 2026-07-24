@@ -52,6 +52,7 @@ export function SavingsChart({ forecast }: Props) {
   return (
     <section className="card">
       <h2>Savings over time</h2>
+      <p className="chart-subtitle">Balances projected at age {last.age}:</p>
       <ul className="chart-legend">
         <li>
           <span className="swatch swatch-total" /> Total —{' '}
@@ -71,7 +72,7 @@ export function SavingsChart({ forecast }: Props) {
           className="chart"
           viewBox={`0 0 ${width} ${height}`}
           role="img"
-          aria-label={`Line chart of total, RRSP, and TFSA savings from age ${minAge} to ${maxAge}. Ending total ${formatCurrency(last.total)}, RRSP ${formatCurrency(last.rrsp)}, TFSA ${formatCurrency(last.tfsa)}.`}
+          aria-label={`Line chart of total, RRSP, and TFSA savings from age ${minAge} to ${maxAge}. At age ${last.age}: total ${formatCurrency(last.total)}, RRSP ${formatCurrency(last.rrsp)}, TFSA ${formatCurrency(last.tfsa)}.`}
           preserveAspectRatio="xMidYMid meet"
         >
           {yTicks.map((t, i) => (
