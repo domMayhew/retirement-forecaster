@@ -230,7 +230,11 @@ function App() {
           <button type="button" className="btn-back" onClick={() => setMode('plan')}>
             ← Edit inputs
           </button>
-          <PlanComparison plans={comparePlans} rateOfReturn={rateOfReturn} />
+          <PlanComparison
+            plans={comparePlans}
+            rateOfReturn={rateOfReturn}
+            onRateChange={changeRateOfReturn}
+          />
         </div>
       ) : (
         <div className="results-view">

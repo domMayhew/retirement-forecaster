@@ -4,6 +4,7 @@ import { findMinimumSurvivingRate, MIN_RATE_SEARCH_LOWER, MIN_RATE_SEARCH_UPPER 
 import type { Forecast, ForecastInput } from '../engine/types'
 import { withDefaults } from '../defaultInput'
 import { validateSegments } from './SavingsPlanForm'
+import { RateOfReturnControl } from './RateOfReturnControl'
 import { formatCurrency } from '../utils/format'
 import { ageTicks } from '../utils/chart'
 import type { SavedPlan } from '../utils/storage'
@@ -12,6 +13,7 @@ interface Props {
   plans: SavedPlan[]
   /** The app's current global assumed rate of return — applied uniformly to every compared plan, overriding whatever rate each plan happened to be saved with. */
   rateOfReturn: number
+  onRateChange: (rate: number) => void
 }
 
 interface ComparedPlan {
@@ -33,7 +35,7 @@ function minRateLabel(input: ForecastInput): string {
   return pct(result.rate)
 }
 
-export function PlanComparison({ plans, rateOfReturn }: Props) {
+export function PlanComparison({ plans, rateOfReturn, onRateChange }: Props) {
   const compared = useMemo<ComparedPlan[]>(() => {
     return plans.flatMap((plan) => {
       const input = { ...withDefaults(plan.input), rateOfReturn }
@@ -48,26 +50,39 @@ export function PlanComparison({ plans, rateOfReturn }: Props) {
     })
   }, [plans, rateOfReturn])
 
+  const rateControl = (
+    <section className="card">
+      <h2>Assumed rate of return</h2>
+      <p className="chart-subtitle">
+        Applied uniformly to every compared plan below, regardless of the rate each was
+        saved with.
+      </p>
+      <div className="field-grid">
+        <RateOfReturnControl rateOfReturn={rateOfReturn} onRateChange={onRateChange} />
+      </div>
+    </section>
+  )
+
   if (compared.length === 0) {
     return (
-      <section className="card">
-        <h2>Compare plans</h2>
-        <p className="empty">
-          None of the selected plans could be compared — check that each has a valid
-          savings plan.
-        </p>
-      </section>
+      <>
+        {rateControl}
+        <section className="card">
+          <h2>Compare plans</h2>
+          <p className="empty">
+            None of the selected plans could be compared — check that each has a valid
+            savings plan.
+          </p>
+        </section>
+      </>
     )
   }
 
   return (
     <>
+      {rateControl}
       <section className="card">
         <h2>Compare plans</h2>
-        <p className="chart-subtitle">
-          All plans use the current assumed rate of return, {pct(rateOfReturn)}, regardless
-          of the rate each was saved with.
-        </p>
         <div className="table-scroll">
           <table className="compare-table">
             <thead>
