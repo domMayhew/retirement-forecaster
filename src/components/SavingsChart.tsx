@@ -1,5 +1,6 @@
 import type { Forecast } from '../engine/types'
 import { formatCurrency } from '../utils/format'
+import { ageTicks } from '../utils/chart'
 
 interface Props {
   forecast: Forecast
@@ -44,6 +45,7 @@ export function SavingsChart({ forecast }: Props) {
     value: maxTotal * f,
     yPos: pad.top + innerH - f * innerH,
   }))
+  const xTicks = ageTicks(minAge, maxAge)
 
   const last = forecast[forecast.length - 1]
 
@@ -86,12 +88,11 @@ export function SavingsChart({ forecast }: Props) {
               </text>
             </g>
           ))}
-          <text className="axis-label" x={x(minAge)} y={height - 8} textAnchor="middle">
-            {minAge}
-          </text>
-          <text className="axis-label" x={x(maxAge)} y={height - 8} textAnchor="middle">
-            {maxAge}
-          </text>
+          {xTicks.map((age) => (
+            <text key={age} className="axis-label" x={x(age)} y={height - 8} textAnchor="middle">
+              {age}
+            </text>
+          ))}
           <path className="chart-area" d={areaPath} />
           <path className="chart-line chart-line-rrsp" d={rrspPath} />
           <path className="chart-line chart-line-tfsa" d={tfsaPath} />

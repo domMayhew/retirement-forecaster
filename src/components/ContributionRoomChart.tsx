@@ -1,5 +1,6 @@
 import type { Forecast } from '../engine/types'
 import { formatCurrency } from '../utils/format'
+import { ageTicks } from '../utils/chart'
 
 interface Props {
   forecast: Forecast
@@ -40,6 +41,7 @@ export function ContributionRoomChart({ forecast }: Props) {
     value: minRoom + span * f,
     yPos: pad.top + innerH - f * innerH,
   }))
+  const xTicks = ageTicks(minAge, maxAge)
 
   return (
     <section className="card">
@@ -84,12 +86,11 @@ export function ContributionRoomChart({ forecast }: Props) {
               y2={zeroY}
             />
           )}
-          <text className="axis-label" x={x(minAge)} y={height - 8} textAnchor="middle">
-            {minAge}
-          </text>
-          <text className="axis-label" x={x(maxAge)} y={height - 8} textAnchor="middle">
-            {maxAge}
-          </text>
+          {xTicks.map((age) => (
+            <text key={age} className="axis-label" x={x(age)} y={height - 8} textAnchor="middle">
+              {age}
+            </text>
+          ))}
           <path className={hasNegative ? 'chart-line chart-line-danger' : 'chart-line'} d={path} />
         </svg>
       </div>
