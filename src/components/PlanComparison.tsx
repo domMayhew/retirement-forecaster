@@ -1,21 +1,25 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { runForecast } from '../engine/forecast'
 import { findMinimumSurvivingRate, MIN_RATE_SEARCH_LOWER, MIN_RATE_SEARCH_UPPER } from '../engine/breakEvenRate'
+import { randomSeed } from '../engine/variability'
 import type { Forecast, ForecastInput } from '../engine/types'
 import { withDefaults } from '../defaultInput'
 import { validateSegments } from './SavingsPlanForm'
 import { RateOfReturnControl } from './RateOfReturnControl'
+import { PercentField } from './fields'
 import { formatCurrency } from '../utils/format'
 import { ageTicks } from '../utils/chart'
 import type { SavedPlan } from '../utils/storage'
 
 interface Props {
   plans: SavedPlan[]
-  /** The app's current global rate-of-return assumptions — applied uniformly to every compared plan, overriding whatever each plan happened to be saved with. Each plan's own seed is preserved, though, so its variability (if any) still replays its own sequence. */
+  /** The app's current global rate-of-return assumptions — applied uniformly to every compared plan, overriding whatever each plan happened to be saved with. Each plan's own seed is preserved (unless locally re-forecast here), so its variability, if any, still replays its own sequence. */
   rateOfReturn: number
   bestYearReturn: number
   worstYearReturn: number
   onRateChange: (rate: number) => void
+  onBestYearReturnChange: (rate: number) => void
+  onWorstYearReturnChange: (rate: number) => void
 }
 
 interface ComparedPlan {
@@ -43,20 +47,46 @@ export function PlanComparison({
   bestYearReturn,
   worstYearReturn,
   onRateChange,
+  onBestYearReturnChange,
+  onWorstYearReturnChange,
 }: Props) {
+  // Each plan's own seed is preserved by default, but can be locally
+  // re-forecast right here — this only overrides the seed for the current
+  // comparison session, the same way "Re-forecast" elsewhere doesn't stick
+  // until the plan itself is saved again.
+  const [seedOverrides, setSeedOverrides] = useState<Record<string, number>>({})
+
+  function reForecastPlan(planId: string) {
+    setSeedOverrides((prev) => ({ ...prev, [planId]: randomSeed() }))
+  }
+
+  // Resolved once per plan list (assigning any legacy plan lacking its own
+  // seed a random one) — independent of the rate/variability sliders below,
+  // so nudging those doesn't keep re-randomizing an unsaved legacy seed.
+  const resolvedPlans = useMemo(
+    () => plans.map((plan) => ({ id: plan.id, name: plan.name, input: withDefaults(plan.input) })),
+    [plans],
+  )
+
   const compared = useMemo<ComparedPlan[]>(() => {
-    return plans.flatMap((plan) => {
-      const input = { ...withDefaults(plan.input), rateOfReturn, bestYearReturn, worstYearReturn }
+    return resolvedPlans.flatMap(({ id, name, input: baseInput }) => {
+      const input = {
+        ...baseInput,
+        rateOfReturn,
+        bestYearReturn,
+        worstYearReturn,
+        seed: seedOverrides[id] ?? baseInput.seed,
+      }
       if (validateSegments(input.savingsPlan).some(Boolean)) return []
       try {
         const forecast = runForecast(input)
         if (forecast.length === 0) return []
-        return [{ id: plan.id, name: plan.name, input, forecast, minRateLabel: minRateLabel(input) }]
+        return [{ id, name, input, forecast, minRateLabel: minRateLabel(input) }]
       } catch {
         return []
       }
     })
-  }, [plans, rateOfReturn, bestYearReturn, worstYearReturn])
+  }, [resolvedPlans, rateOfReturn, bestYearReturn, worstYearReturn, seedOverrides])
 
   const rateControl = (
     <section className="card">
@@ -67,6 +97,28 @@ export function PlanComparison({
       </p>
       <div className="field-grid">
         <RateOfReturnControl rateOfReturn={rateOfReturn} onRateChange={onRateChange} />
+      </div>
+      <p className="variability-hint">
+        Add year-to-year variability by widening the best/worst year below — leave them
+        equal to the average for a flat rate every year.
+      </p>
+      <div className="field-grid">
+        <PercentField
+          id="compareWorstYearReturn"
+          label="Worst year"
+          value={worstYearReturn}
+          min={-100}
+          max={rateOfReturn * 100}
+          onChange={onWorstYearReturnChange}
+        />
+        <PercentField
+          id="compareBestYearReturn"
+          label="Best year"
+          value={bestYearReturn}
+          min={rateOfReturn * 100}
+          max={100}
+          onChange={onBestYearReturnChange}
+        />
       </div>
     </section>
   )
@@ -136,6 +188,23 @@ export function PlanComparison({
                 <td>Minimum return needed</td>
                 {compared.map((p) => (
                   <td key={p.id}>{p.minRateLabel}</td>
+                ))}
+              </tr>
+              <tr>
+                <td>Seed</td>
+                {compared.map((p) => (
+                  <td key={p.id}>
+                    <div className="compare-seed-cell">
+                      <span className="reforecast-seed">{p.input.seed}</span>
+                      <button
+                        type="button"
+                        className="btn-edit-toggle"
+                        onClick={() => reForecastPlan(p.id)}
+                      >
+                        Re-forecast
+                      </button>
+                    </div>
+                  </td>
                 ))}
               </tr>
             </tbody>

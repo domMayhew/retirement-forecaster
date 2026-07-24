@@ -1030,3 +1030,14 @@ table {
   font-weight: 500;
   color: var(--text-h);
 }
+
+.compare-seed-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.compare-seed-cell .btn-edit-toggle {
+  padding: 4px 10px;
+  font-size: 12px;
+}

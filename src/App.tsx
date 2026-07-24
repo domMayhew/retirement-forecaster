@@ -292,6 +292,8 @@ function App() {
             bestYearReturn={bestYearReturn}
             worstYearReturn={worstYearReturn}
             onRateChange={changeRateOfReturn}
+            onBestYearReturnChange={changeBestYearReturn}
+            onWorstYearReturnChange={changeWorstYearReturn}
           />
         </div>
       ) : (
