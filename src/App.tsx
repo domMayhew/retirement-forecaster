@@ -13,6 +13,7 @@ import { SavingsPlanForm, validateSegments } from './components/SavingsPlanForm'
 import { RetirementPlanForm } from './components/RetirementPlanForm'
 import { GlobalAssumptionsForm } from './components/GlobalAssumptionsForm'
 import { ResultsTable } from './components/ResultsTable'
+import { ResultsSummary } from './components/ResultsSummary'
 import { SavingsChart } from './components/SavingsChart'
 import { ContributionRoomChart } from './components/ContributionRoomChart'
 import { SavedPlans, type ActivePlan } from './components/SavedPlans'
@@ -282,6 +283,7 @@ function App() {
             onRateChange={changeRateOfReturn}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
           />
+          <ResultsSummary forecast={forecast} input={effectiveInput} />
           <SavingsChart forecast={forecast} />
           <ContributionRoomChart forecast={forecast} />
           <ResultsTable

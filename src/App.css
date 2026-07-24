@@ -209,6 +209,30 @@
   margin: 0 0 14px;
 }
 
+/* Headline stats at the top of Results. */
+.summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-stat-label {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.summary-stat-value {
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
 /* Fields ----------------------------------------------------------------- */
 .field-grid {
   display: grid;
