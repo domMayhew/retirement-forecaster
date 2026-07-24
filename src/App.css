@@ -1031,13 +1031,8 @@ table {
   color: var(--text-h);
 }
 
-.compare-seed-cell {
+.compare-reforecast-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.compare-seed-cell .btn-edit-toggle {
-  padding: 4px 10px;
-  font-size: 12px;
+  justify-content: flex-end;
+  margin-top: 14px;
 }

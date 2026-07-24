@@ -13,7 +13,7 @@ import type { SavedPlan } from '../utils/storage'
 
 interface Props {
   plans: SavedPlan[]
-  /** The app's current global rate-of-return assumptions — applied uniformly to every compared plan, overriding whatever each plan happened to be saved with. Each plan's own seed is preserved (unless locally re-forecast here), so its variability, if any, still replays its own sequence. */
+  /** The app's current global rate-of-return assumptions — applied uniformly to every compared plan, overriding whatever each plan happened to be saved with. */
   rateOfReturn: number
   bestYearReturn: number
   worstYearReturn: number
@@ -50,43 +50,25 @@ export function PlanComparison({
   onBestYearReturnChange,
   onWorstYearReturnChange,
 }: Props) {
-  // Each plan's own seed is preserved by default, but can be locally
-  // re-forecast right here — this only overrides the seed for the current
-  // comparison session, the same way "Re-forecast" elsewhere doesn't stick
-  // until the plan itself is saved again.
-  const [seedOverrides, setSeedOverrides] = useState<Record<string, number>>({})
-
-  function reForecastPlan(planId: string) {
-    setSeedOverrides((prev) => ({ ...prev, [planId]: randomSeed() }))
-  }
-
-  // Resolved once per plan list (assigning any legacy plan lacking its own
-  // seed a random one) — independent of the rate/variability sliders below,
-  // so nudging those doesn't keep re-randomizing an unsaved legacy seed.
-  const resolvedPlans = useMemo(
-    () => plans.map((plan) => ({ id: plan.id, name: plan.name, input: withDefaults(plan.input) })),
-    [plans],
-  )
+  // One seed shared by every compared plan, specific to this comparison
+  // session — not each plan's own saved seed, doesn't need to be persisted,
+  // and isn't shown to the user. Re-forecast just rolls a new one for all
+  // compared plans at once.
+  const [seed, setSeed] = useState(() => randomSeed())
 
   const compared = useMemo<ComparedPlan[]>(() => {
-    return resolvedPlans.flatMap(({ id, name, input: baseInput }) => {
-      const input = {
-        ...baseInput,
-        rateOfReturn,
-        bestYearReturn,
-        worstYearReturn,
-        seed: seedOverrides[id] ?? baseInput.seed,
-      }
+    return plans.flatMap((plan) => {
+      const input = { ...withDefaults(plan.input), rateOfReturn, bestYearReturn, worstYearReturn, seed }
       if (validateSegments(input.savingsPlan).some(Boolean)) return []
       try {
         const forecast = runForecast(input)
         if (forecast.length === 0) return []
-        return [{ id, name, input, forecast, minRateLabel: minRateLabel(input) }]
+        return [{ id: plan.id, name: plan.name, input, forecast, minRateLabel: minRateLabel(input) }]
       } catch {
         return []
       }
     })
-  }, [resolvedPlans, rateOfReturn, bestYearReturn, worstYearReturn, seedOverrides])
+  }, [plans, rateOfReturn, bestYearReturn, worstYearReturn, seed])
 
   const rateControl = (
     <section className="card">
@@ -119,6 +101,11 @@ export function PlanComparison({
           max={100}
           onChange={onBestYearReturnChange}
         />
+      </div>
+      <div className="compare-reforecast-row">
+        <button type="button" className="btn-edit-toggle" onClick={() => setSeed(randomSeed())}>
+          Re-forecast
+        </button>
       </div>
     </section>
   )
@@ -188,23 +175,6 @@ export function PlanComparison({
                 <td>Minimum return needed</td>
                 {compared.map((p) => (
                   <td key={p.id}>{p.minRateLabel}</td>
-                ))}
-              </tr>
-              <tr>
-                <td>Seed</td>
-                {compared.map((p) => (
-                  <td key={p.id}>
-                    <div className="compare-seed-cell">
-                      <span className="reforecast-seed">{p.input.seed}</span>
-                      <button
-                        type="button"
-                        className="btn-edit-toggle"
-                        onClick={() => reForecastPlan(p.id)}
-                      >
-                        Re-forecast
-                      </button>
-                    </div>
-                  </td>
                 ))}
               </tr>
             </tbody>
