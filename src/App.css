@@ -1,0 +1,415 @@
+/* Retirement Forecaster — layout and component styling. */
+
+.app {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.app-header {
+  margin-bottom: 24px;
+}
+
+.app-header h1 {
+  font-size: 34px;
+  letter-spacing: -0.6px;
+  margin: 0 0 6px;
+}
+
+.tagline {
+  color: var(--text);
+  font-size: 16px;
+}
+
+/* Two-column layout: inputs on the left, outputs on the right.
+   Collapses to a single column on narrow screens. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.inputs,
+.outputs {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* Cards ------------------------------------------------------------------ */
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  font-size: 18px;
+  margin: 0 0 14px;
+}
+
+/* Fields ----------------------------------------------------------------- */
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 480px) {
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field-label {
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+input[type='number'],
+input[type='text'] {
+  font: inherit;
+  font-size: 15px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+input[type='number']:focus,
+input[type='text']:focus {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+/* Prefix / suffix affixes ($, %) */
+.input-affix,
+.cell-affix {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.input-affix:focus-within,
+.cell-affix:focus-within {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.input-affix input,
+.cell-affix input {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+}
+
+.input-affix input:focus,
+.cell-affix input:focus {
+  outline: none;
+}
+
+.affix {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--code-bg);
+}
+
+.affix-suffix {
+  order: 2;
+}
+
+/* Rate-of-return slider row */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.slider-number {
+  width: 100px;
+  flex: none;
+}
+
+/* Savings-plan segment table -------------------------------------------- */
+.table-scroll {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+
+.segments th,
+.segments td {
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.segments th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.segments .row-num {
+  color: var(--text);
+  text-align: center;
+}
+
+.segments input {
+  min-width: 70px;
+}
+
+.segments .cell-affix input {
+  min-width: 60px;
+}
+
+.row-invalid input {
+  border-color: #e0245e;
+}
+
+.row-invalid .cell-affix,
+.row-invalid .input-affix {
+  border-color: #e0245e;
+}
+
+.btn-add,
+.btn-remove {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.btn-add {
+  margin-top: 12px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.btn-add:hover {
+  background: var(--accent-border);
+}
+
+.btn-remove {
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+  color: #e0245e;
+}
+
+.btn-remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.validation {
+  margin: 12px 0 0;
+  padding: 10px 12px 10px 28px;
+  list-style: disc;
+  background: rgba(224, 36, 94, 0.08);
+  border: 1px solid rgba(224, 36, 94, 0.4);
+  border-radius: 8px;
+  color: #e0245e;
+  font-size: 13px;
+}
+
+.validation li {
+  margin: 2px 0;
+}
+
+.notice {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(224, 36, 94, 0.08);
+  border: 1px solid rgba(224, 36, 94, 0.4);
+  color: #e0245e;
+  font-size: 14px;
+}
+
+/* Results table ---------------------------------------------------------- */
+.results th,
+.results td {
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.results th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+
+.results .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.results .total {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.results tbody tr:hover {
+  background: var(--social-bg);
+}
+
+.phase {
+  display: inline-block;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  color: var(--text);
+}
+
+.phase-retirement {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.row-shortfall .phase {
+  background: rgba(224, 36, 94, 0.12);
+  color: #e0245e;
+}
+
+/* Grouped two-row header. */
+.results thead th[colspan] {
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+.results thead th.sub {
+  font-weight: 500;
+  color: var(--text);
+  opacity: 0.8;
+  top: 31px; /* sits below the group-header row when scrolling */
+}
+
+/* Retirement years whose withdrawal is below the 5% RRSP minimum. */
+.row-below-min {
+  background: rgba(230, 162, 60, 0.09);
+}
+.row-below-min:hover {
+  background: rgba(230, 162, 60, 0.16);
+}
+.cell-below-min {
+  color: #b26a00;
+  font-weight: 600;
+}
+
+/* Legend above the projection table. */
+.table-legend {
+  font-size: 12px;
+  color: var(--text);
+  margin: 0 0 12px;
+  line-height: 1.7;
+}
+.swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  vertical-align: -1px;
+  margin: 0 5px 0 2px;
+}
+.table-legend .swatch:not(:first-child) {
+  margin-left: 14px;
+}
+.swatch-below {
+  background: rgba(230, 162, 60, 0.5);
+  border: 1px solid #e6a23c;
+}
+.swatch-shortfall {
+  background: rgba(224, 36, 94, 0.2);
+  border: 1px solid #e0245e;
+}
+
+.empty {
+  color: var(--text);
+  font-size: 14px;
+}
+
+/* Chart ------------------------------------------------------------------ */
+.chart {
+  width: 100%;
+  height: auto;
+  min-width: 420px;
+}
+
+.chart .grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.chart .axis-label {
+  fill: var(--text);
+  font-size: 11px;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-area {
+  fill: var(--accent-bg);
+  stroke: none;
+}
