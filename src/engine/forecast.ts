@@ -398,11 +398,16 @@ export function runForecast(input: ForecastInput): Forecast {
   let rrsp = initial.currentRRSP
   let tfsa = initial.currentTFSA
   let rrspRoom = initial.currentRRSPRoom
+  // Running sum of every applied rate so far, so each row can report its
+  // simple average-to-date without re-summing the whole history every year.
+  let cumulativeRateSum = 0
 
   // --- Accumulation: currentAge .. retirementAge - 1 ---------------------
   for (let age = currentAge; age < retirementAge; age++) {
     const segment = activeSegmentForAge(age, savingsPlan)
     const yearRate = rateForAge(age)
+    cumulativeRateSum += yearRate
+    const averageReturnToDate = cumulativeRateSum / (age - currentAge + 1)
     const startRRSP = rrsp
     const startTFSA = tfsa
     const computed = computeAccumulationYear(startRRSP, startTFSA, segment, incomeTaxRate, yearRate)
@@ -430,6 +435,7 @@ export function runForecast(input: ForecastInput): Forecast {
       age,
       phase: 'accumulation',
       appliedRateOfReturn: yearRate,
+      averageReturnToDate,
       rrsp,
       tfsa,
       total: rrsp + tfsa,
@@ -458,6 +464,8 @@ export function runForecast(input: ForecastInput): Forecast {
   const taxRate = retirement.retirementTaxRate
   for (let age = retirementAge; age <= endAge; age++) {
     const yearRate = rateForAge(age)
+    cumulativeRateSum += yearRate
+    const averageReturnToDate = cumulativeRateSum / (age - currentAge + 1)
     // CPP/OAS are entered PRE-TAX and taxed at the retirement rate, so only
     // their after-tax value counts toward the required (after-tax) income.
     const cpp = cppForAge(age, retirement)
@@ -521,6 +529,7 @@ export function runForecast(input: ForecastInput): Forecast {
       age,
       phase: 'retirement',
       appliedRateOfReturn: yearRate,
+      averageReturnToDate,
       rrsp,
       tfsa,
       total: rrsp + tfsa,

@@ -158,15 +158,7 @@ export function ResultsTable({
             <tr>
               <th rowSpan={2}>Age</th>
               <th rowSpan={2}>Phase</th>
-              {show('returnRate') && (
-                <th
-                  className="num"
-                  rowSpan={2}
-                  title="The rate of return actually applied to grow this year's balance — flat unless variability is in play, in which case it's this year's sampled value."
-                >
-                  Return
-                </th>
-              )}
+              {show('returnRate') && <th className="num" colSpan={2}>Return</th>}
               {show('contributions') && (
                 <th className="num" colSpan={2}>Contributions</th>
               )}
@@ -187,6 +179,22 @@ export function ResultsTable({
               {show('incomeMix') && <th className="num" colSpan={2}>Income mix</th>}
             </tr>
             <tr>
+              {show('returnRate') && (
+                <>
+                  <th
+                    className="num sub"
+                    title="The rate of return actually applied to grow this year's balance — flat unless variability is in play, in which case it's this year's sampled value."
+                  >
+                    This year
+                  </th>
+                  <th
+                    className="num sub"
+                    title="The simple average of every applied return from the first projected year through this one. Not guaranteed to equal the assumed rate of return — a finite sampled sequence only converges toward it over a long enough run."
+                  >
+                    Average to date
+                  </th>
+                </>
+              )}
               {show('contributions') && (
                 <>
                   <th className="num sub">RRSP</th>
@@ -255,7 +263,12 @@ export function ResultsTable({
                       {row.shortfall ? ' · shortfall' : ''}
                     </span>
                   </td>
-                  {show('returnRate') && <td className="num">{pct(row.appliedRateOfReturn)}</td>}
+                  {show('returnRate') && (
+                    <>
+                      <td className="num">{pct(row.appliedRateOfReturn)}</td>
+                      <td className="num">{pct(row.averageReturnToDate)}</td>
+                    </>
+                  )}
                   {show('contributions') &&
                     (!canEditContribution ? (
                       <>

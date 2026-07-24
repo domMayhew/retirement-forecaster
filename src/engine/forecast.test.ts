@@ -600,3 +600,49 @@ describe('runForecast: variability applies a per-year sampled rate instead of a 
     expect(distinctRates.size).toBeGreaterThan(1)
   })
 })
+
+describe('runForecast: averageReturnToDate tracks the running average of applied rates', () => {
+  it('equals the flat rate every year when there is no variability', () => {
+    // baseInput() has bestYearReturn === worstYearReturn === rateOfReturn (0.10).
+    const rows = runForecast(baseInput())
+    expect(rows.every((r) => Math.abs(r.averageReturnToDate - 0.1) < 1e-9)).toBe(true)
+  })
+
+  it("on the first year, equals that year's own applied rate", () => {
+    const input = baseInput()
+    input.bestYearReturn = 0.3
+    input.worstYearReturn = -0.2
+    input.seed = 9
+    const rows = runForecast(input)
+    expect(rows[0].averageReturnToDate).toBeCloseTo(rows[0].appliedRateOfReturn, 10)
+  })
+
+  it('matches a hand-computed running mean of appliedRateOfReturn at every row', () => {
+    const input = baseInput()
+    input.initial.currentAge = 60
+    input.initial.retirementAge = 65
+    input.endAge = 75
+    input.bestYearReturn = 0.3
+    input.worstYearReturn = -0.2
+    input.seed = 123
+
+    const rows = runForecast(input)
+    let runningSum = 0
+    rows.forEach((row, i) => {
+      runningSum += row.appliedRateOfReturn
+      expect(row.averageReturnToDate).toBeCloseTo(runningSum / (i + 1), 10)
+    })
+  })
+
+  it("is NOT guaranteed to equal the assumed average — a finite sampled sequence can land away from it", () => {
+    // A real property of the model, not a bug: pick a seed/scenario where the
+    // final average-to-date provably differs from the 10% assumed average.
+    const input = baseInput()
+    input.bestYearReturn = 0.3
+    input.worstYearReturn = -0.2
+    input.seed = 123
+    const rows = runForecast(input)
+    const last = rows[rows.length - 1]
+    expect(last.averageReturnToDate).not.toBeCloseTo(0.1, 3)
+  })
+})

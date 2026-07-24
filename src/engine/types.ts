@@ -139,6 +139,14 @@ export interface ForecastYear {
   phase: 'accumulation' | 'retirement'
   /** The actual rate of return applied to grow this year's balance — the flat `rateOfReturn` unless variability is in play, in which case it's this year's sampled value. */
   appliedRateOfReturn: number
+  /**
+   * The simple average of `appliedRateOfReturn` across every year from the
+   * very first projected year through this one. With variability on, this is
+   * NOT guaranteed to equal the assumed `rateOfReturn` — a finite sampled
+   * sequence only converges toward the average as it gets long, so any given
+   * run (especially a short one) can land meaningfully above or below it.
+   */
+  averageReturnToDate: number
 
   // End-of-year balances.
   rrsp: number
