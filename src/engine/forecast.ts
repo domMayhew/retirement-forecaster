@@ -215,11 +215,103 @@ export function computeRetirementWithdrawal(
   }
 }
 
-// TODO(age-72-mandatory-withdrawal): Starting at age 72 there is a mandatory
-// minimum RRSP withdrawal of 5% of the RRSP balance, regardless of income need.
-// The human explicitly deferred this — DO NOT wire it into runForecast yet.
-// When implemented it will take the max of (income-gap withdrawal, 5% of RRSP)
-// from the RRSP, with the excess over the income need still taxed.
+// ---------------------------------------------------------------------------
+// MANDATORY RRIF MINIMUM WITHDRAWAL
+// ---------------------------------------------------------------------------
+//
+// Once a saver turns 72, the CRA forces a minimum withdrawal from a RRIF
+// (which we treat the RRSP as becoming) each year, regardless of income need.
+// The minimum is a prescribed percentage of the account's START-of-year
+// balance that climbs with age. This app starts applying it at 72 (rather
+// than the 71 a real RRIF technically uses) to match the age this app has
+// always flagged as the "mandatory minimum" boundary.
+//
+// Source: CRA prescribed RRIF minimum withdrawal factors (Income Tax
+// Regulation 7308), current as of the 2015 budget update.
+export const MANDATORY_MIN_AGE = 72
+
+const RRIF_MINIMUM_FACTORS: Record<number, number> = {
+  72: 0.054,
+  73: 0.0553,
+  74: 0.0567,
+  75: 0.0582,
+  76: 0.0598,
+  77: 0.0617,
+  78: 0.0636,
+  79: 0.0658,
+  80: 0.0682,
+  81: 0.0708,
+  82: 0.0738,
+  83: 0.0771,
+  84: 0.0808,
+  85: 0.0851,
+  86: 0.0899,
+  87: 0.0955,
+  88: 0.1021,
+  89: 0.1099,
+  90: 0.1192,
+  91: 0.1306,
+  92: 0.1449,
+  93: 0.1634,
+  94: 0.1879,
+}
+/** Flat 20% from age 95 on, per the prescribed table. */
+const RRIF_MINIMUM_FACTOR_95_PLUS = 0.2
+
+/** The prescribed minimum fraction of the RRSP/RRIF that must be withdrawn this year. 0 before age 72. */
+export function rrifMinimumFactor(age: number): number {
+  if (age < MANDATORY_MIN_AGE) return 0
+  if (age >= 95) return RRIF_MINIMUM_FACTOR_95_PLUS
+  return RRIF_MINIMUM_FACTORS[age] ?? RRIF_MINIMUM_FACTOR_95_PLUS
+}
+
+export interface RRIFAdjustedWithdrawal extends RetirementWithdrawalResult {
+  /** True when the prescribed minimum forced a larger RRSP withdrawal than the plan otherwise needed. */
+  forcedMinimum: boolean
+}
+
+/**
+ * Forces the RRSP withdrawal up to the prescribed minimum when the
+ * income-driven withdrawal (`base`) falls short of it. The extra after-tax
+ * cash this generates reduces the TFSA withdrawal by the same amount — the
+ * saver still needed only the original gap, so money that must now come out
+ * of the RRSP is money that no longer needs to come out of the TFSA. If the
+ * surplus exceeds the whole TFSA withdrawal, the TFSA share drops to 0 and
+ * the saver simply receives more after-tax income than they asked for.
+ */
+export function applyRRIFMinimum(
+  base: RetirementWithdrawalResult,
+  startRRSP: number,
+  startTFSA: number,
+  age: number,
+  retirementTaxRate: number,
+): RRIFAdjustedWithdrawal {
+  const minRRSPWithdrawal = startRRSP * rrifMinimumFactor(age)
+  if (base.rrspWithdrawal >= minRRSPWithdrawal) {
+    return { ...base, forcedMinimum: false }
+  }
+
+  const rrspWithdrawal = Math.min(minRRSPWithdrawal, startRRSP)
+  const extraAfterTax = (rrspWithdrawal - base.rrspWithdrawal) * (1 - retirementTaxRate)
+  const tfsaWithdrawal = Math.max(0, base.tfsaWithdrawal - extraAfterTax)
+
+  const taxPaid = rrspWithdrawal * retirementTaxRate
+  const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
+  const total = startRRSP + startTFSA
+  const withdrawalPct = total > 0 ? (rrspWithdrawal + tfsaWithdrawal) / total : 0
+
+  return {
+    rrspWithdrawal,
+    tfsaWithdrawal,
+    withdrawalPct,
+    taxPaid,
+    netFromSavings,
+    // Forcing a mandatory minimum out of an account that still has money in
+    // it isn't a shortfall — that only means the accounts ran out entirely.
+    shortfall: base.shortfall,
+    forcedMinimum: true,
+  }
+}
 
 // ---------------------------------------------------------------------------
 // RETIREMENT INCOME HELPERS
@@ -317,6 +409,7 @@ export function runForecast(input: ForecastInput): Forecast {
       incomeFromCppOasPct: 0,
       taxPaid: 0,
       shortfall: false,
+      forcedMinimumWithdrawal: false,
       rrspRoom,
     })
   }
@@ -334,7 +427,8 @@ export function runForecast(input: ForecastInput): Forecast {
 
     const startRRSP = rrsp
     const startTFSA = tfsa
-    const w = computeRetirementWithdrawal(startRRSP, startTFSA, gap, taxRate)
+    const needed = computeRetirementWithdrawal(startRRSP, startTFSA, gap, taxRate)
+    const w = applyRRIFMinimum(needed, startRRSP, startTFSA, age, taxRate)
 
     // Growth applies AFTER withdrawal (flow first, then grow).
     rrsp = (startRRSP - w.rrspWithdrawal) * (1 + rateOfReturn)
@@ -364,6 +458,7 @@ export function runForecast(input: ForecastInput): Forecast {
       incomeFromCppOasPct: totalIncome > 0 ? (cppAfterTax + oasAfterTax) / totalIncome : 0,
       taxPaid: w.taxPaid,
       shortfall: w.shortfall,
+      forcedMinimumWithdrawal: w.forcedMinimum,
       // No earned income assumed in retirement, so room neither accrues nor
       // is spent — it just carries forward unchanged.
       rrspRoom,

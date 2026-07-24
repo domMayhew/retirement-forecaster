@@ -93,9 +93,7 @@ export interface ForecastYear {
   tfsaWithdrawal: number
   /**
    * The percentage withdrawn from the combined RRSP+TFSA balance this year.
-   * 0 when no withdrawal was needed. Surfaced so the eventual mandatory
-   * age-72 rule (which forces at least 5% of the RRSP) is easy to preview:
-   * years below 5% are where that rule would force extra withdrawals.
+   * 0 when no withdrawal was needed.
    */
   withdrawalPct: number
   /** Fraction of the START-of-year RRSP balance withdrawn this year. 0 if the RRSP was empty. */
@@ -129,6 +127,11 @@ export interface ForecastYear {
    * fully met this year.
    */
   shortfall: boolean
+  /**
+   * True when the prescribed RRIF minimum (from age 72 on) forced a bigger
+   * RRSP withdrawal than the plan otherwise needed this year.
+   */
+  forcedMinimumWithdrawal: boolean
 
   /**
    * Remaining RRSP contribution room at the end of this year: last year's

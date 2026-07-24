@@ -1,16 +1,9 @@
-import type { Forecast, ForecastYear } from '../engine/types'
+import type { Forecast } from '../engine/types'
 import { formatCurrency } from '../utils/format'
 
 interface Props {
   forecast: Forecast
 }
-
-// The eventual (currently deferred) mandatory RRSP minimum forces at least 5%
-// of the RRSP to be withdrawn each year — but only from age 72 on. Retirement
-// years from 72 whose withdrawal falls below that threshold are where the rule
-// would force additional withdrawals, so we flag them.
-const MANDATORY_MIN_PCT = 0.05
-const MANDATORY_MIN_AGE = 72
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
@@ -24,14 +17,6 @@ function money(value: number): string {
 /** Percent, or an em dash when nothing happened this row (so 0% isn't confused with N/A). */
 function pctOrDash(value: number, applicable: boolean): string {
   return applicable ? pct(value) : '—'
-}
-
-function belowMandatory(row: ForecastYear): boolean {
-  return (
-    row.phase === 'retirement' &&
-    row.age >= MANDATORY_MIN_AGE &&
-    row.withdrawalPct < MANDATORY_MIN_PCT
-  )
 }
 
 export function ResultsTable({ forecast }: Props) {
@@ -51,9 +36,9 @@ export function ResultsTable({ forecast }: Props) {
     <section className="card">
       <h2>Projection</h2>
       <p className="table-legend">
-        <span className="swatch swatch-below" /> Age 72+ withdrawal below the 5%
-        RRSP minimum — the (deferred) mandatory rule would force a larger
-        withdrawal in these years.
+        <span className="swatch swatch-below" /> The RRIF minimum (from age
+        72 on) forced a bigger RRSP withdrawal than the plan otherwise
+        needed this year.
         <span className="swatch swatch-shortfall" /> Shortfall — savings could
         not fully cover the required income.
       </p>
@@ -90,10 +75,10 @@ export function ResultsTable({ forecast }: Props) {
           </thead>
           <tbody>
             {forecast.map((row) => {
-              const below = belowMandatory(row)
+              const forced = row.forcedMinimumWithdrawal
               const classes = [
                 row.shortfall ? 'row-shortfall' : '',
-                below ? 'row-below-min' : '',
+                forced ? 'row-below-min' : '',
               ]
                 .filter(Boolean)
                 .join(' ')
@@ -113,10 +98,12 @@ export function ResultsTable({ forecast }: Props) {
                   <td className="num total">{formatCurrency(row.total)}</td>
                   <td className="num">{money(row.rrspWithdrawal)}</td>
                   <td className="num">{money(rrspNet)}</td>
-                  <td className="num">{pctOrDash(row.rrspWithdrawalPct, row.rrspWithdrawal > 0)}</td>
+                  <td className={`num${forced ? ' cell-below-min' : ''}`}>
+                    {pctOrDash(row.rrspWithdrawalPct, row.rrspWithdrawal > 0)}
+                  </td>
                   <td className="num">{money(row.tfsaWithdrawal)}</td>
                   <td className="num">{pctOrDash(row.tfsaWithdrawalPct, row.tfsaWithdrawal > 0)}</td>
-                  <td className={`num${below ? ' cell-below-min' : ''}`}>
+                  <td className="num">
                     {pctOrDash(row.withdrawalPct, row.rrspWithdrawal > 0 || row.tfsaWithdrawal > 0)}
                   </td>
                   <td className="num">{money(row.cpp)}</td>

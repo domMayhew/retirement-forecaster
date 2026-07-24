@@ -212,6 +212,27 @@ describe('runForecast: running out of money flags a shortfall', () => {
   })
 })
 
+describe('runForecast: mandatory RRIF minimum forces extra RRSP withdrawal from age 72', () => {
+  it('flags forcedMinimumWithdrawal and withdraws exactly the prescribed % when the income need is tiny', () => {
+    const input = baseInput()
+    input.initial.currentAge = 71
+    input.initial.retirementAge = 72
+    input.initial.currentRRSP = 500000
+    input.initial.currentTFSA = 500000
+    input.retirement.requiredMonthlyIncome = 100 // far below the mandatory minimum
+    input.endAge = 72
+    const rows = runForecast(input)
+    const y72 = rows.find((r) => r.age === 72)!
+    expect(y72.forcedMinimumWithdrawal).toBe(true)
+    expect(y72.rrspWithdrawalPct).toBeCloseTo(0.054, 6)
+  })
+
+  it('never forces a withdrawal before age 72', () => {
+    const rows = runForecast(baseInput())
+    expect(rows.every((r) => !r.forcedMinimumWithdrawal)).toBe(true)
+  })
+})
+
 describe('runForecast: RRSP contribution room accrues and is spent by contributions', () => {
   it('adds 18% of income as new room each accumulation year, then subtracts the RRSP contribution', () => {
     // income 100,000 -> accrual 18,000/yr (well under the annual dollar cap).
