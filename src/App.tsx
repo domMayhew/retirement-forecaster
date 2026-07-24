@@ -193,7 +193,14 @@ function App() {
               <InitialConditionsForm value={input.initial} onChange={patchInitial} />
             </div>
             <div className="plan-cell plan-cell-retirement">
-              <RetirementPlanForm value={input.retirement} onChange={patchRetirement} />
+              <RetirementPlanForm
+                value={input.retirement}
+                onChange={patchRetirement}
+                reinvestForcedWithdrawals={input.reinvestForcedWithdrawals}
+                onReinvestForcedWithdrawalsChange={(reinvestForcedWithdrawals) =>
+                  setInput((prev) => ({ ...prev, reinvestForcedWithdrawals }))
+                }
+              />
             </div>
             <div className="plan-cell plan-cell-savings">
               <SavingsPlanForm
@@ -254,12 +261,8 @@ function App() {
           <GlobalAssumptionsForm
             rateOfReturn={rateOfReturn}
             endAge={input.endAge}
-            reinvestForcedWithdrawals={input.reinvestForcedWithdrawals}
             onRateChange={changeRateOfReturn}
             onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
-            onReinvestForcedWithdrawalsChange={(reinvestForcedWithdrawals) =>
-              setInput((prev) => ({ ...prev, reinvestForcedWithdrawals }))
-            }
           />
           <ResultsSummary forecast={forecast} input={effectiveInput} />
           <SavingsChart forecast={forecast} />

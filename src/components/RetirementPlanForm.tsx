@@ -4,9 +4,16 @@ import { NumberField, CurrencyField, PercentField } from './fields'
 interface Props {
   value: RetirementPlan
   onChange: (patch: Partial<RetirementPlan>) => void
+  reinvestForcedWithdrawals: boolean
+  onReinvestForcedWithdrawalsChange: (value: boolean) => void
 }
 
-export function RetirementPlanForm({ value, onChange }: Props) {
+export function RetirementPlanForm({
+  value,
+  onChange,
+  reinvestForcedWithdrawals,
+  onReinvestForcedWithdrawalsChange,
+}: Props) {
   return (
     <section className="card">
       <h2>Retirement plan</h2>
@@ -52,6 +59,17 @@ export function RetirementPlanForm({ value, onChange }: Props) {
           onChange={(v) => onChange({ oasStartAge: v })}
         />
       </div>
+      <label
+        className="section-toggle forced-withdrawal-toggle"
+        title="We don't track this money once it's spent — it just shows up as extra income in years the mandatory RRIF withdrawal forces out more than the plan needs."
+      >
+        <input
+          type="checkbox"
+          checked={!reinvestForcedWithdrawals}
+          onChange={(e) => onReinvestForcedWithdrawalsChange(!e.target.checked)}
+        />
+        Spend RRSP money forced out by the RRIF minimum instead of reinvesting it in the TFSA
+      </label>
     </section>
   )
 }
