@@ -12,6 +12,8 @@ import { RetirementPlanForm } from './components/RetirementPlanForm'
 import { GlobalAssumptionsForm } from './components/GlobalAssumptionsForm'
 import { ResultsTable } from './components/ResultsTable'
 import { SavingsChart } from './components/SavingsChart'
+import { ContributionRoomChart } from './components/ContributionRoomChart'
+import { formatCurrency } from './utils/format'
 import './App.css'
 
 // Sensible defaults so the app shows something immediately on load.
@@ -23,6 +25,7 @@ const DEFAULT_INPUT: ForecastInput = {
     currentIncome: 90000,
     retirementAge: 65,
     incomeTaxRate: 0.25,
+    currentRRSPRoom: 40000,
   },
   savingsPlan: [
     {
@@ -74,6 +77,10 @@ function App() {
     }
   }, [input, planIsValid])
 
+  // The first age (if any) where the plan contributes more RRSP than the
+  // saver has room for.
+  const roomExceededYear = forecast.find((r) => r.rrspRoom < 0)
+
   return (
     <div className="app">
       <header className="app-header">
@@ -107,7 +114,16 @@ function App() {
               updated results.
             </p>
           )}
+          {roomExceededYear && (
+            <p className="notice">
+              At age {roomExceededYear.age} the plan over-contributes to the
+              RRSP: contribution room goes {formatCurrency(roomExceededYear.rrspRoom)}
+              . Lower the RRSP contribution or raise the starting contribution
+              room.
+            </p>
+          )}
           <SavingsChart forecast={forecast} />
+          <ContributionRoomChart forecast={forecast} />
           <ResultsTable forecast={forecast} />
         </div>
       </div>

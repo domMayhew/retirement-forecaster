@@ -85,6 +85,13 @@
   grid-column: 1 / -1;
 }
 
+.field-hint {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 .field-label {
   font-size: 13px;
   color: var(--text);
@@ -412,4 +419,20 @@ table {
 .chart-area {
   fill: var(--accent-bg);
   stroke: none;
+}
+
+/* Contribution-room chart: zero baseline + shaded over-contribution zone. */
+.chart-zero-line {
+  stroke: var(--text);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+
+.chart-danger-zone {
+  fill: rgba(224, 36, 94, 0.08);
+}
+
+.chart-line-danger {
+  stroke: #e0245e;
 }

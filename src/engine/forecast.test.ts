@@ -7,7 +7,7 @@
 // Growth-timing convention throughout: "flow first, then grow."
 
 import { describe, it, expect } from 'vitest'
-import { runForecast } from './forecast'
+import { runForecast, RRSP_ANNUAL_DOLLAR_LIMIT } from './forecast'
 import type { ForecastInput, SavingsPlanSegment } from './types'
 
 function seg(over: Partial<SavingsPlanSegment> = {}): SavingsPlanSegment {
@@ -40,6 +40,7 @@ function baseInput(): ForecastInput {
       currentIncome: 0,
       retirementAge: 65,
       incomeTaxRate: 0.25,
+      currentRRSPRoom: 200000,
     },
     savingsPlan: [seg({ untilAge: 65 })],
     retirement: {
@@ -133,6 +134,7 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
         currentIncome: 0,
         retirementAge: 43,
         incomeTaxRate: 0,
+        currentRRSPRoom: 200000,
       },
       savingsPlan: [
         seg({ id: 'a', monthlyRRSP: 1000, untilAge: 41 }),
@@ -165,5 +167,51 @@ describe('runForecast: running out of money flags a shortfall', () => {
     const rows = runForecast(input)
     const retirementRows = rows.filter((r) => r.phase === 'retirement')
     expect(retirementRows.some((r) => r.shortfall)).toBe(true)
+  })
+})
+
+describe('runForecast: RRSP contribution room accrues and is spent by contributions', () => {
+  it('adds 18% of income as new room each accumulation year, then subtracts the RRSP contribution', () => {
+    // income 100,000 -> accrual 18,000/yr (well under the annual dollar cap).
+    // Starting room 10,000. seg contributes $1,000/mo RRSP, 0% tax -> $12,000/yr.
+    // Age 64 (only accumulation year): room = 10,000 + 18,000 - 12,000 = 16,000.
+    const input = baseInput()
+    input.initial.currentIncome = 100000
+    input.initial.currentRRSPRoom = 10000
+    input.initial.incomeTaxRate = 0
+    input.savingsPlan = [seg({ monthlyRRSP: 1000, untilAge: 65 })]
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(16000, 6)
+  })
+
+  it('caps the annual accrual at the CRA dollar limit for high earners', () => {
+    // income 500,000 -> 18% = 90,000, but capped at RRSP_ANNUAL_DOLLAR_LIMIT.
+    const input = baseInput()
+    input.initial.currentIncome = 500000
+    input.initial.currentRRSPRoom = 0
+    input.savingsPlan = [seg({ monthlyRRSP: 0, untilAge: 65 })]
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(RRSP_ANNUAL_DOLLAR_LIMIT, 6)
+  })
+
+  it('goes negative when contributions outstrip available room', () => {
+    const input = baseInput()
+    input.initial.currentIncome = 0 // no accrual
+    input.initial.currentRRSPRoom = 5000
+    input.initial.incomeTaxRate = 0
+    input.savingsPlan = [seg({ monthlyRRSP: 1000, untilAge: 65 })] // $12,000/yr contribution
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(-7000, 6)
+  })
+
+  it('holds room flat through retirement (no earned income, no contributions)', () => {
+    const input = baseInput()
+    input.initial.currentRRSPRoom = 25000
+    input.initial.currentIncome = 0
+    const rows = runForecast(input)
+    const y65 = rows.find((r) => r.age === 65)!
+    const y66 = rows.find((r) => r.age === 66)!
+    expect(y65.rrspRoom).toBeCloseTo(25000, 6)
+    expect(y66.rrspRoom).toBeCloseTo(25000, 6)
   })
 })

@@ -20,6 +20,12 @@ export interface InitialConditions {
   retirementAge: number
   /** Marginal income tax rate while working. Used to size the RRSP refund. Default 0.25. */
   incomeTaxRate: number
+  /**
+   * RRSP contribution room available today, as reported on the saver's latest
+   * CRA Notice of Assessment (unused room carries forward indefinitely, so
+   * this already includes every prior year's carry-forward).
+   */
+  currentRRSPRoom: number
 }
 
 /**
@@ -111,6 +117,15 @@ export interface ForecastYear {
    * fully met this year.
    */
   shortfall: boolean
+
+  /**
+   * Remaining RRSP contribution room at the end of this year: last year's
+   * room, plus this year's accrual (18% of current income, capped at the
+   * annual CRA dollar limit — accumulation years only), minus this year's
+   * RRSP contribution. Negative means the plan contributes more than the
+   * saver is allowed to.
+   */
+  rrspRoom: number
 }
 
 export type Forecast = ForecastYear[]

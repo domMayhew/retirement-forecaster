@@ -33,6 +33,27 @@ export const DEFAULT_REFUND_REINVEST_FRACTION = 1.0
 export const DEFAULT_RETIREMENT_TAX_RATE = 0.15
 export const DEFAULT_END_AGE = 100
 
+// RRSP contribution room accrues each year at 18% of earned income, capped at
+// an annual dollar limit set by the CRA and indexed to inflation. $33,810 is
+// the 2026 limit; future years are held at this figure as a simplifying
+// assumption (the engine has no inflation model elsewhere either).
+export const RRSP_ANNUAL_DOLLAR_LIMIT = 33810
+export const RRSP_ACCRUAL_RATE = 0.18
+
+// ---------------------------------------------------------------------------
+// RRSP CONTRIBUTION ROOM
+// ---------------------------------------------------------------------------
+
+/**
+ * New RRSP room accrued for one accumulation year: 18% of earned income,
+ * capped at the annual CRA dollar limit. Only earned income generates room,
+ * so retirement years (CPP/OAS/withdrawals, no earned income) accrue none —
+ * callers should only invoke this for accumulation years.
+ */
+export function rrspRoomAccrual(earnedIncome: number): number {
+  return Math.min(Math.max(earnedIncome, 0) * RRSP_ACCRUAL_RATE, RRSP_ANNUAL_DOLLAR_LIMIT)
+}
+
 // ---------------------------------------------------------------------------
 // ACCUMULATION
 // ---------------------------------------------------------------------------
@@ -263,6 +284,7 @@ export function runForecast(input: ForecastInput): Forecast {
 
   let rrsp = initial.currentRRSP
   let tfsa = initial.currentTFSA
+  let rrspRoom = initial.currentRRSPRoom
 
   // --- Accumulation: currentAge .. retirementAge - 1 ---------------------
   for (let age = currentAge; age < retirementAge; age++) {
@@ -271,6 +293,7 @@ export function runForecast(input: ForecastInput): Forecast {
 
     rrsp = year.rrsp
     tfsa = year.tfsa
+    rrspRoom = rrspRoom + rrspRoomAccrual(initial.currentIncome) - year.rrspContribution
 
     rows.push({
       age,
@@ -290,6 +313,7 @@ export function runForecast(input: ForecastInput): Forecast {
       netFromSavings: 0,
       taxPaid: 0,
       shortfall: false,
+      rrspRoom,
     })
   }
 
@@ -328,6 +352,9 @@ export function runForecast(input: ForecastInput): Forecast {
       netFromSavings: w.netFromSavings,
       taxPaid: w.taxPaid,
       shortfall: w.shortfall,
+      // No earned income assumed in retirement, so room neither accrues nor
+      // is spent — it just carries forward unchanged.
+      rrspRoom,
     })
   }
 
