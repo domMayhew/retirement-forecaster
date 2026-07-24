@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   ForecastInput,
   InitialConditions,
@@ -48,8 +48,11 @@ const DEFAULT_INPUT: ForecastInput = {
   endAge: 100,
 }
 
+type Mode = 'plan' | 'results'
+
 function App() {
   const [input, setInput] = useState<ForecastInput>(DEFAULT_INPUT)
+  const [mode, setMode] = useState<Mode>('plan')
 
   function patchInitial(patch: Partial<InitialConditions>) {
     setInput((prev) => ({ ...prev, initial: { ...prev.initial, ...patch } }))
@@ -80,40 +83,98 @@ function App() {
   // The first age (if any) where the plan contributes more RRSP than the
   // saver has room for.
   const roomExceededYear = forecast.find((r) => r.rrspRoom < 0)
+  const hasWarning = Boolean(roomExceededYear) || forecast.some((r) => r.shortfall)
+  const lastYear = forecast[forecast.length - 1]
+
+  // Results depends on a valid plan; if editing breaks the plan while the
+  // saver is looking at results, drop them back to Plan so they see why.
+  useEffect(() => {
+    if (!planIsValid) setMode('plan')
+  }, [planIsValid])
 
   return (
-    <div className="app">
+    <div className={mode === 'results' ? 'app app-wide' : 'app'}>
       <header className="app-header">
-        <h1>Retirement Forecaster</h1>
-        <p className="tagline">
-          Project your RRSP and TFSA balances from today through retirement.
-        </p>
+        <div className="app-header-top">
+          <div>
+            <h1>Retirement Forecaster</h1>
+            <p className="tagline">
+              Project your RRSP and TFSA balances from today through retirement.
+            </p>
+          </div>
+          <nav className="mode-tabs" aria-label="View">
+            <button
+              type="button"
+              className={mode === 'plan' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('plan')}
+            >
+              1. Plan
+            </button>
+            <button
+              type="button"
+              className={mode === 'results' ? 'mode-tab active' : 'mode-tab'}
+              onClick={() => setMode('results')}
+              disabled={!planIsValid}
+              title={!planIsValid ? 'Fix the savings plan to see results' : undefined}
+            >
+              2. Results
+              {hasWarning && <span className="tab-warning-dot" aria-label="Has warnings" />}
+            </button>
+          </nav>
+        </div>
       </header>
 
-      <div className="layout">
-        <div className="inputs">
-          <InitialConditionsForm value={input.initial} onChange={patchInitial} />
-          <SavingsPlanForm
-            segments={input.savingsPlan}
-            retirementAge={input.initial.retirementAge}
-            onChange={setSegments}
-          />
-          <RetirementPlanForm value={input.retirement} onChange={patchRetirement} />
-          <GlobalAssumptionsForm
-            rateOfReturn={input.rateOfReturn}
-            endAge={input.endAge}
-            onRateChange={(rateOfReturn) => setInput((prev) => ({ ...prev, rateOfReturn }))}
-            onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
-          />
-        </div>
-
-        <div className="outputs">
+      {mode === 'plan' ? (
+        <div className="plan-view">
           {!planIsValid && (
             <p className="notice">
               Fix the savings plan (each row's “until age” must increase) to see
               updated results.
             </p>
           )}
+          <div className="plan-grid">
+            <InitialConditionsForm value={input.initial} onChange={patchInitial} />
+            <SavingsPlanForm
+              segments={input.savingsPlan}
+              retirementAge={input.initial.retirementAge}
+              onChange={setSegments}
+            />
+            <RetirementPlanForm value={input.retirement} onChange={patchRetirement} />
+            <GlobalAssumptionsForm
+              rateOfReturn={input.rateOfReturn}
+              endAge={input.endAge}
+              onRateChange={(rateOfReturn) => setInput((prev) => ({ ...prev, rateOfReturn }))}
+              onEndAgeChange={(endAge) => setInput((prev) => ({ ...prev, endAge }))}
+            />
+          </div>
+
+          <div className="plan-cta">
+            <div className="plan-cta-summary">
+              {planIsValid && lastYear ? (
+                <>
+                  Projected total at age {lastYear.age}:{' '}
+                  <strong>{formatCurrency(lastYear.total)}</strong>
+                </>
+              ) : (
+                'Fix the savings plan above to see a projection.'
+              )}
+            </div>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!planIsValid}
+              onClick={() => setMode('results')}
+            >
+              View results →
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="results-view">
+          <button type="button" className="btn-back" onClick={() => setMode('plan')}>
+            ← Edit inputs
+          </button>
+
           {roomExceededYear && (
             <p className="notice">
               At age {roomExceededYear.age} the plan over-contributes to the
@@ -122,11 +183,12 @@ function App() {
               room.
             </p>
           )}
+
           <SavingsChart forecast={forecast} />
           <ContributionRoomChart forecast={forecast} />
           <ResultsTable forecast={forecast} />
         </div>
-      </div>
+      )}
     </div>
   )
 }

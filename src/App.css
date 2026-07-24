@@ -2,15 +2,30 @@
 
 .app {
   width: 100%;
-  max-width: 1180px;
+  max-width: 920px;
   margin: 0 auto;
   padding: 24px 20px 64px;
   box-sizing: border-box;
   text-align: left;
+  transition: max-width 0.15s ease;
+}
+
+/* Results get their own wider canvas — the chart and the (wide) table
+   benefit from the extra room that the plan's cards don't need. */
+.app.app-wide {
+  max-width: 1320px;
 }
 
 .app-header {
   margin-bottom: 24px;
+}
+
+.app-header-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .app-header h1 {
@@ -24,27 +39,139 @@
   font-size: 16px;
 }
 
-/* Two-column layout: inputs on the left, outputs on the right.
-   Collapses to a single column on narrow screens. */
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
+/* Mode switch: Plan (inputs) vs Results (chart + table). Each mode gets the
+   full width of .app instead of the two fighting for space in one column. */
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  flex: none;
 }
 
-@media (max-width: 900px) {
-  .layout {
-    grid-template-columns: 1fr;
-  }
+.mode-tab {
+  position: relative;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
 }
 
-.inputs,
-.outputs {
+.mode-tab.active {
+  background: var(--bg);
+  color: var(--text-h);
+  box-shadow: var(--shadow);
+}
+
+.mode-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tab-warning-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: #e0245e;
+  vertical-align: middle;
+}
+
+/* Plan view: a spacious multi-column grid of input cards, since it no
+   longer has to share the row with results. */
+.plan-view {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  min-width: 0;
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.plan-cta {
+  position: sticky;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+.plan-cta-summary {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.plan-cta-summary strong {
+  color: var(--text-h);
+}
+
+.btn-primary {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid var(--accent-border);
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Results view: full-width chart(s) and table. */
+.results-view {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.btn-back {
+  align-self: flex-start;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.btn-back:hover {
+  background: var(--code-bg);
+}
+
+@media (max-width: 720px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
+  .plan-cta {
+    position: static;
+  }
 }
 
 /* Cards ------------------------------------------------------------------ */
