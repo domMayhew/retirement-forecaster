@@ -3,6 +3,7 @@ import type {
   ContributionOverride,
   ForecastInput,
   InitialConditions,
+  RetirementIncomeSegment,
   RetirementPlan,
   SavingsPlanSegment,
   WithdrawalOverride,
@@ -11,6 +12,7 @@ import { runForecast } from './engine/forecast'
 import { InitialConditionsForm } from './components/InitialConditionsForm'
 import { SavingsPlanForm, validateSegments } from './components/SavingsPlanForm'
 import { RetirementPlanForm } from './components/RetirementPlanForm'
+import { RetirementIncomeForm, validateIncomeSegments } from './components/RetirementIncomeForm'
 import { GlobalAssumptionsForm } from './components/GlobalAssumptionsForm'
 import { ResultsTable } from './components/ResultsTable'
 import { ResultsSummary } from './components/ResultsSummary'
@@ -111,6 +113,10 @@ function App() {
     setInput((prev) => ({ ...prev, savingsPlan }))
   }
 
+  function setIncomePlan(incomePlan: RetirementIncomeSegment[]) {
+    setInput((prev) => ({ ...prev, retirement: { ...prev.retirement, incomePlan } }))
+  }
+
   function setContributionOverride(
     age: number,
     field: keyof ContributionOverride,
@@ -163,10 +169,12 @@ function App() {
     [input, rateOfReturn, bestYearReturn, worstYearReturn],
   )
 
-  // Only feed the engine a valid (strictly-increasing) savings plan; otherwise
-  // hold the last-known-good render rather than crashing on bad input.
+  // Only feed the engine valid (strictly-increasing) savings and retirement
+  // income plans; otherwise hold the last-known-good render rather than
+  // crashing on bad input.
   const segmentErrors = validateSegments(input.savingsPlan)
-  const planIsValid = !segmentErrors.some(Boolean)
+  const incomeSegmentErrors = validateIncomeSegments(input.retirement.incomePlan)
+  const planIsValid = !segmentErrors.some(Boolean) && !incomeSegmentErrors.some(Boolean)
 
   const forecast = useMemo(() => {
     if (!planIsValid) return []
@@ -225,8 +233,8 @@ function App() {
         <div className="plan-view">
           {!planIsValid && (
             <p className="notice">
-              Fix the savings plan (each row's “until age” must increase) to see
-              updated results.
+              Fix the savings plan and retirement income plan (each row's “until age”
+              must increase) to see updated results.
             </p>
           )}
           <SavedPlans
@@ -256,6 +264,13 @@ function App() {
                 segments={input.savingsPlan}
                 retirementAge={input.initial.retirementAge}
                 onChange={setSegments}
+              />
+            </div>
+            <div className="plan-cell plan-cell-income">
+              <RetirementIncomeForm
+                segments={input.retirement.incomePlan}
+                endAge={input.endAge}
+                onChange={setIncomePlan}
               />
             </div>
           </div>

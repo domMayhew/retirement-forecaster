@@ -34,7 +34,7 @@ function baseInput(over: Partial<ForecastInput> = {}): ForecastInput {
     },
     savingsPlan: [seg()],
     retirement: {
-      requiredMonthlyIncome: 2000,
+      incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 2000, untilAge: 90 }],
       cppMonthly: 0,
       cppStartAge: 200,
       oasMonthly: 0,

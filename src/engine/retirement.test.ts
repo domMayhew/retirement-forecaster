@@ -97,7 +97,7 @@ describe('Retirement: shortfall when savings cannot cover the gap', () => {
 
 describe('Retirement: CPP and OAS are entered monthly (pre-tax) and switch on at their start ages', () => {
   const plan: RetirementPlan = {
-    requiredMonthlyIncome: 4000,
+    incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 4000, untilAge: 100 }],
     cppMonthly: 1250, // 15,000 / yr gross
     cppStartAge: 65,
     oasMonthly: 500, // 6,000 / yr gross

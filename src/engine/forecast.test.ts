@@ -45,7 +45,7 @@ function baseInput(): ForecastInput {
     },
     savingsPlan: [seg({ untilAge: 65 })],
     retirement: {
-      requiredMonthlyIncome: 3750, // 45,000 / yr
+      incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 3750, untilAge: 66 }], // 45,000 / yr
       cppMonthly: 0,
       cppStartAge: 200, // effectively never
       oasMonthly: 0,
@@ -223,7 +223,7 @@ describe('runForecast: manual withdrawal overrides replace the solved-for amount
     input.initial.retirementAge = 72
     input.initial.currentRRSP = 500000
     input.initial.currentTFSA = 500000
-    input.retirement.requiredMonthlyIncome = 100
+    input.retirement.incomePlan = [{ id: 'income-1', requiredMonthlyIncome: 100, untilAge: 72 }]
     input.endAge = 72
     input.withdrawalOverrides = { 72: { rrspWithdrawal: 100 } }
     const rows = runForecast(input)
@@ -314,7 +314,7 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
         seg({ id: 'b', monthlyRRSP: 2000, untilAge: 43 }),
       ],
       retirement: {
-        requiredMonthlyIncome: 0,
+        incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 0, untilAge: 43 }],
         cppMonthly: 0,
         cppStartAge: 200,
         oasMonthly: 0,
@@ -337,11 +337,85 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
   })
 })
 
+describe('runForecast: staged retirement income plan switches at each segment\'s untilAge', () => {
+  it('applies stage 1 required income through its untilAge, then stage 2 for later years', () => {
+    // A big enough RRSP that nothing runs short, 0% growth/tax so the
+    // numbers are hand-checkable: stage 1 needs 60,000/yr through age 67
+    // (the "go-go" years), stage 2 tapers to 24,000/yr for 68-70.
+    const input: ForecastInput = {
+      initial: {
+        currentAge: 64,
+        currentRRSP: 1000000,
+        currentTFSA: 0,
+        currentIncome: 0,
+        retirementAge: 65,
+        incomeTaxRate: 0,
+        currentRRSPRoom: 0,
+      },
+      savingsPlan: [seg({ untilAge: 65 })],
+      retirement: {
+        incomePlan: [
+          { id: 'stage-1', requiredMonthlyIncome: 5000, untilAge: 67 },
+          { id: 'stage-2', requiredMonthlyIncome: 2000, untilAge: 70 },
+        ],
+        cppMonthly: 0,
+        cppStartAge: 200,
+        oasMonthly: 0,
+        oasStartAge: 200,
+        retirementTaxRate: 0,
+      },
+      rateOfReturn: 0,
+      bestYearReturn: 0,
+      worstYearReturn: 0,
+      seed: 1,
+      endAge: 70,
+      reinvestForcedWithdrawals: true,
+      contributionOverrides: {},
+      withdrawalOverrides: {},
+    }
+    const rows = runForecast(input)
+    for (const age of [65, 66, 67]) {
+      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(60000, 6)
+    }
+    for (const age of [68, 69, 70]) {
+      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(24000, 6)
+    }
+  })
+
+  it('falls back to the last segment for ages beyond its own untilAge', () => {
+    // A single stage only explicitly covers through age 67, but the
+    // projection runs to 70 — activeSegmentForAge's fallback rule means it
+    // still applies for 68-70 rather than leaving those years undefined. A
+    // large enough balance that it isn't drained by then keeps this test
+    // isolated to the fallback behavior, not depletion.
+    const input = baseInput()
+    input.initial.currentRRSP = 5000000
+    input.initial.currentTFSA = 5000000
+    input.endAge = 70
+    input.retirement.incomePlan = [{ id: 'stage-1', requiredMonthlyIncome: 3750, untilAge: 67 }]
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 70)!.netFromSavings).toBeCloseTo(45000, 6)
+  })
+
+  it('a shorter early stage can require MORE income than a later stage, not just less', () => {
+    const input = baseInput()
+    input.endAge = 67
+    input.retirement.incomePlan = [
+      { id: 'stage-1', requiredMonthlyIncome: 3750, untilAge: 65 }, // 45,000/yr
+      { id: 'stage-2', requiredMonthlyIncome: 1000, untilAge: 67 }, // 12,000/yr
+    ]
+    const rows = runForecast(input)
+    expect(rows.find((r) => r.age === 65)!.netFromSavings).toBeCloseTo(45000, 6)
+    expect(rows.find((r) => r.age === 66)!.netFromSavings).toBeCloseTo(12000, 6)
+    expect(rows.find((r) => r.age === 67)!.netFromSavings).toBeCloseTo(12000, 6)
+  })
+})
+
 describe('runForecast: running out of money flags a shortfall', () => {
   it('marks shortfall = true once the accounts are exhausted', () => {
     const input = baseInput()
     // Require far more than the modest balances can sustain.
-    input.retirement.requiredMonthlyIncome = 100000 // 1.2M/yr
+    input.retirement.incomePlan = [{ id: 'income-1', requiredMonthlyIncome: 100000, untilAge: 70 }] // 1.2M/yr
     input.endAge = 70
     const rows = runForecast(input)
     const retirementRows = rows.filter((r) => r.phase === 'retirement')
@@ -356,7 +430,7 @@ describe('runForecast: mandatory RRIF minimum forces extra RRSP withdrawal from 
     input.initial.retirementAge = 72
     input.initial.currentRRSP = 500000
     input.initial.currentTFSA = 500000
-    input.retirement.requiredMonthlyIncome = 100 // far below the mandatory minimum
+    input.retirement.incomePlan = [{ id: 'income-1', requiredMonthlyIncome: 100, untilAge: 72 }] // far below the mandatory minimum
     input.endAge = 72
     const rows = runForecast(input)
     const y72 = rows.find((r) => r.age === 72)!
@@ -388,7 +462,7 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
       },
       savingsPlan: [seg({ untilAge: 95 })],
       retirement: {
-        requiredMonthlyIncome: 1000 / 12,
+        incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 1000 / 12, untilAge: 95 }],
         cppMonthly: 0,
         cppStartAge: 200,
         oasMonthly: 0,
@@ -466,7 +540,7 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
       },
       savingsPlan: [seg({ monthlyRRSP: 500, monthlyTFSA: 500, untilAge: 65 })],
       retirement: {
-        requiredMonthlyIncome: 4000,
+        incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 4000, untilAge: 100 }],
         cppMonthly: 1000,
         cppStartAge: 65,
         oasMonthly: 700,

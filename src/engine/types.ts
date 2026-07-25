@@ -45,11 +45,27 @@ export interface SavingsPlanSegment {
 }
 
 /**
+ * A single stage of the retirement (decumulation) income plan. Segments run
+ * in order; each is active from the end of the previous segment up to (and
+ * including the year of) `untilAge`. `untilAge` must be strictly greater
+ * than the previous segment's `untilAge` — lets a saver plan different
+ * stages of retirement (e.g. more spending in the first active years,
+ * tapering off later) the same way the savings plan stages contributions.
+ */
+export interface RetirementIncomeSegment {
+  id: string
+  /** Required take-home income per month, after tax, during this stage. */
+  requiredMonthlyIncome: number
+  /** Upper age bound (inclusive) for this segment. Default = endAge. */
+  untilAge: number
+}
+
+/**
  * The retirement (decumulation) plan.
  */
 export interface RetirementPlan {
-  /** Required take-home income per month, after tax. */
-  requiredMonthlyIncome: number
+  /** Ordered stages of required monthly income through retirement. */
+  incomePlan: RetirementIncomeSegment[]
   /** CPP income per month, PRE-TAX. Taxed at retirementTaxRate like RRSP income. */
   cppMonthly: number
   cppStartAge: number

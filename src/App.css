@@ -100,7 +100,8 @@
   grid-template-columns: 1fr 1fr;
   grid-template-areas:
     'initial retirement'
-    'savings savings';
+    'savings savings'
+    'income income';
   gap: 20px;
   align-items: start;
 }
@@ -115,6 +116,10 @@
 
 .plan-cell-savings {
   grid-area: savings;
+}
+
+.plan-cell-income {
+  grid-area: income;
 }
 
 .plan-cta {
@@ -205,7 +210,8 @@
     grid-template-areas:
       'initial'
       'retirement'
-      'savings';
+      'savings'
+      'income';
   }
   .plan-cta {
     position: static;

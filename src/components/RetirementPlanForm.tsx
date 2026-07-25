@@ -18,12 +18,6 @@ export function RetirementPlanForm({
     <section className="card">
       <h2>Retirement plan</h2>
       <div className="field-grid">
-        <CurrencyField
-          id="requiredMonthlyIncome"
-          label="Required monthly income (after tax)"
-          value={value.requiredMonthlyIncome}
-          onChange={(v) => onChange({ requiredMonthlyIncome: v })}
-        />
         <PercentField
           id="retirementTaxRate"
           label="Expected retirement tax rate"

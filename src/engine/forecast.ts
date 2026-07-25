@@ -354,12 +354,11 @@ export function oasForAge(age: number, plan: RetirementPlan): number {
 /**
  * The active segment for a given age is the first segment (segments are
  * ordered by increasing untilAge) whose untilAge >= age. If age is beyond the
- * last segment's untilAge, the last segment applies.
+ * last segment's untilAge, the last segment applies. Generic over any
+ * segment shape with an `untilAge` — used for both the savings plan and the
+ * retirement income plan.
  */
-export function activeSegmentForAge(
-  age: number,
-  segments: SavingsPlanSegment[],
-): SavingsPlanSegment {
+export function activeSegmentForAge<T extends { untilAge: number }>(age: number, segments: T[]): T {
   for (const segment of segments) {
     if (age <= segment.untilAge) return segment
   }
@@ -383,8 +382,6 @@ export function activeSegmentForAge(
 export function runForecast(input: ForecastInput): Forecast {
   const { initial, savingsPlan, retirement, rateOfReturn, bestYearReturn, worstYearReturn, seed, endAge } = input
   const { currentAge, retirementAge, incomeTaxRate } = initial
-
-  const requiredAnnualIncome = retirement.requiredMonthlyIncome * 12
 
   const rows: ForecastYear[] = []
 
@@ -472,6 +469,8 @@ export function runForecast(input: ForecastInput): Forecast {
     const oas = oasForAge(age, retirement)
     const cppAfterTax = cpp * (1 - taxRate)
     const oasAfterTax = oas * (1 - taxRate)
+    const incomeSegment = activeSegmentForAge(age, retirement.incomePlan)
+    const requiredAnnualIncome = incomeSegment.requiredMonthlyIncome * 12
     const gap = requiredAnnualIncome - cppAfterTax - oasAfterTax
 
     const startRRSP = rrsp
