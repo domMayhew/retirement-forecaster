@@ -1,5 +1,5 @@
 import type { RetirementPlan } from '../engine/types'
-import { NumberField, CurrencyField, PercentField } from './fields'
+import { NumberField, CurrencyField } from './fields'
 
 interface Props {
   value: RetirementPlan
@@ -18,12 +18,6 @@ export function RetirementPlanForm({
     <section className="card">
       <h2>Retirement plan</h2>
       <div className="field-grid">
-        <PercentField
-          id="retirementTaxRate"
-          label="Expected retirement tax rate"
-          value={value.retirementTaxRate}
-          onChange={(v) => onChange({ retirementTaxRate: v })}
-        />
         <CurrencyField
           id="cppMonthly"
           label="Expected CPP income (monthly, pre-tax)"
@@ -53,6 +47,10 @@ export function RetirementPlanForm({
           onChange={(v) => onChange({ oasStartAge: v })}
         />
       </div>
+      <p className="field-hint">
+        CPP and OAS are taxed as ordinary income alongside RRSP withdrawals, using your
+        province's marginal tax brackets (set under Initial conditions).
+      </p>
       <label
         className="section-toggle forced-withdrawal-toggle"
         title="We don't track this money once it's spent — it just shows up as extra income in years the mandatory RRIF withdrawal forces out more than the plan needs."

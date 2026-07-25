@@ -12,9 +12,9 @@ export const DEFAULT_INPUT: ForecastInput = {
     currentTFSA: 30000,
     currentIncome: 90000,
     retirementAge: 65,
-    incomeTaxRate: 0.25,
     currentRRSPRoom: 40000,
   },
+  province: 'BC',
   savingsPlan: [
     {
       id: 'seg-initial',
@@ -36,7 +36,6 @@ export const DEFAULT_INPUT: ForecastInput = {
     cppStartAge: 65,
     oasMonthly: 700,
     oasStartAge: 65,
-    retirementTaxRate: 0.15,
   },
   rateOfReturn: 0.05,
   bestYearReturn: 0.05,

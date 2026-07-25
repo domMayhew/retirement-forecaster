@@ -1,12 +1,19 @@
-import type { InitialConditions } from '../engine/types'
-import { NumberField, CurrencyField, PercentField } from './fields'
+import type { InitialConditions, Province } from '../engine/types'
+import { NumberField, CurrencyField, SelectField } from './fields'
 
 interface Props {
   value: InitialConditions
   onChange: (patch: Partial<InitialConditions>) => void
+  province: Province
+  onProvinceChange: (province: Province) => void
 }
 
-export function InitialConditionsForm({ value, onChange }: Props) {
+const PROVINCE_OPTIONS: { value: Province; label: string }[] = [
+  { value: 'BC', label: 'British Columbia' },
+  { value: 'AB', label: 'Alberta' },
+]
+
+export function InitialConditionsForm({ value, onChange, province, onProvinceChange }: Props) {
   return (
     <section className="card">
       <h2>Initial conditions</h2>
@@ -45,11 +52,12 @@ export function InitialConditionsForm({ value, onChange }: Props) {
           value={value.currentIncome}
           onChange={(v) => onChange({ currentIncome: v })}
         />
-        <PercentField
-          id="incomeTaxRate"
-          label="Current income tax rate"
-          value={value.incomeTaxRate}
-          onChange={(v) => onChange({ incomeTaxRate: v })}
+        <SelectField
+          id="province"
+          label="Province"
+          value={province}
+          options={PROVINCE_OPTIONS}
+          onChange={onProvinceChange}
         />
         <CurrencyField
           id="currentRRSPRoom"
@@ -59,9 +67,14 @@ export function InitialConditionsForm({ value, onChange }: Props) {
         />
       </div>
       <p className="field-hint">
-        From your latest CRA Notice of Assessment. Grows automatically by 18%
-        of your income each year (capped at the annual CRA limit) and is
-        reduced by RRSP contributions.
+        Income tax is calculated automatically from marginal federal + provincial
+        brackets — a simplified estimate that doesn't account for credits, deductions, or
+        other provinces yet.
+      </p>
+      <p className="field-hint">
+        RRSP contribution room is from your latest CRA Notice of Assessment. Grows
+        automatically by 18% of your income each year (capped at the annual CRA limit)
+        and is reduced by RRSP contributions.
       </p>
     </section>
   )

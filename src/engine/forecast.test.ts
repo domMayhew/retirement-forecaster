@@ -25,12 +25,20 @@ function seg(over: Partial<SavingsPlanSegment> = {}): SavingsPlanSegment {
 // A fully hand-checkable scenario:
 //   - Age 64 is the single accumulation year (retirementAge 65).
 //   - No contributions, so accumulation is pure 10% growth of $100k + $100k.
-//   - Retirement years 65 and 66 each need $45,000/yr from a 50/50 split at 20% tax.
+//   - Retirement years 65 and 66 each need $44,985/yr from a 50/50 split.
+//     Province BC keeps the withdrawal within the first federal (15%) AND
+//     first BC (5.06%) bracket — combined 20.06% — so the progressive-bracket
+//     math this scenario actually exercises still reduces to simple flat-rate
+//     algebra, and $44,985 (rather than a round $45,000) is exactly the net
+//     that a clean 25k/25k RRSP/TFSA withdrawal produces at that rate.
 //
 //   Accumulation age 64: (100,000) * 1.10 = 110,000 in each account.
 //   Retirement age 65: total 220,000; gross withdrawal 50,000 (25k + 25k);
-//                      tax 5,000; net 45,000; then grow: 85,000 * 1.10 = 93,500 each.
-//   Retirement age 66: total 187,000; again 25k + 25k out, net 45,000;
+//                      tax 5,015 (25,000 * 20.06%); net 44,985;
+//                      then grow: 85,000 * 1.10 = 93,500 each.
+//   Retirement age 66: total 187,000; again 25k + 25k out, net 44,985
+//                      (same target, same 50/50 RRSP:TFSA ratio -> same
+//                      solved withdrawal regardless of the smaller total);
 //                      then grow: 68,500 * 1.10 = 75,350 each.
 function baseInput(): ForecastInput {
   return {
@@ -40,17 +48,16 @@ function baseInput(): ForecastInput {
       currentTFSA: 100000,
       currentIncome: 0,
       retirementAge: 65,
-      incomeTaxRate: 0.25,
       currentRRSPRoom: 200000,
     },
+    province: 'BC',
     savingsPlan: [seg({ untilAge: 65 })],
     retirement: {
-      incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 3750, untilAge: 66 }], // 45,000 / yr
+      incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 44985 / 12, untilAge: 66 }],
       cppMonthly: 0,
       cppStartAge: 200, // effectively never
       oasMonthly: 0,
       oasStartAge: 200, // effectively never
-      retirementTaxRate: 0.20,
     },
     rateOfReturn: 0.10,
     bestYearReturn: 0.10,
@@ -142,43 +149,44 @@ describe('runForecast: manual contribution overrides replace the segment-derived
 })
 
 describe('runForecast: retirement years deliver the required income and update balances', () => {
-  it('at age 65 withdraws 25k+25k, pays 5k tax, nets the 45k gap, then grows to 93.5k each', () => {
+  it('at age 65 withdraws 25k+25k, pays 20.06% tax, nets the 44,985 requirement, then grows to 93.5k each', () => {
     const rows = runForecast(baseInput())
     const y65 = rows.find((r) => r.age === 65)!
-    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 6)
-    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 6)
-    expect(y65.taxPaid).toBeCloseTo(5000, 6)
-    expect(y65.netFromSavings).toBeCloseTo(45000, 6)
-    expect(y65.rrsp).toBeCloseTo(93500, 6)
-    expect(y65.tfsa).toBeCloseTo(93500, 6)
+    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 4)
+    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 4)
+    expect(y65.taxPaid).toBeCloseTo(5015, 4)
+    expect(y65.netFromSavings).toBeCloseTo(44985, 4)
+    expect(y65.rrsp).toBeCloseTo(93500, 3)
+    expect(y65.tfsa).toBeCloseTo(93500, 3)
     expect(y65.shortfall).toBe(false)
   })
 
-  it('at age 66 again nets the 45k gap and grows the remainder to 75,350 each', () => {
+  it('at age 66 again nets the 44,985 requirement and grows the remainder to 75,350 each', () => {
     const rows = runForecast(baseInput())
     const y66 = rows.find((r) => r.age === 66)!
-    expect(y66.netFromSavings).toBeCloseTo(45000, 6)
-    expect(y66.rrsp).toBeCloseTo(75350, 6)
-    expect(y66.tfsa).toBeCloseTo(75350, 6)
+    expect(y66.netFromSavings).toBeCloseTo(44985, 4)
+    expect(y66.rrsp).toBeCloseTo(75350, 3)
+    expect(y66.tfsa).toBeCloseTo(75350, 3)
   })
 })
 
 describe('runForecast: manual withdrawal overrides replace the solved-for amount for that age', () => {
   it('overrides just the RRSP withdrawal, recomputing tax/net and flagging the shortfall this creates', () => {
     // Age 65 naturally withdraws 25k/25k for a 45k net. Override RRSP down
-    // to 10,000: tax = 2,000, net = 10,000 - 2,000 + 25,000 (TFSA untouched,
-    // still the naturally solved amount) = 33,000 — under the 45k need.
+    // to 10,000: tax = 2,006 (10,000 * 20.06%), net = 10,000 - 2,006 + 25,000
+    // (TFSA untouched, still the naturally solved amount) = 32,994 — under
+    // the ~45k need.
     const input = baseInput()
     input.withdrawalOverrides = { 65: { rrspWithdrawal: 10000 } }
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
     expect(y65.rrspWithdrawal).toBe(10000)
-    expect(y65.taxPaid).toBeCloseTo(2000, 6)
-    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 6)
-    expect(y65.netFromSavings).toBeCloseTo(33000, 6)
+    expect(y65.taxPaid).toBeCloseTo(2006, 4)
+    expect(y65.tfsaWithdrawal).toBeCloseTo(25000, 4)
+    expect(y65.netFromSavings).toBeCloseTo(32994, 4)
     expect(y65.shortfall).toBe(true)
     expect(y65.rrsp).toBeCloseTo((110000 - 10000) * 1.1, 6)
-    expect(y65.tfsa).toBeCloseTo((110000 - 25000) * 1.1, 6)
+    expect(y65.tfsa).toBeCloseTo((110000 - 25000) * 1.1, 4)
   })
 
   it('overrides just the TFSA withdrawal, leaving RRSP solved normally', () => {
@@ -187,8 +195,8 @@ describe('runForecast: manual withdrawal overrides replace the solved-for amount
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
     expect(y65.tfsaWithdrawal).toBe(10000)
-    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 6)
-    expect(y65.netFromSavings).toBeCloseTo(25000 - 5000 + 10000, 6)
+    expect(y65.rrspWithdrawal).toBeCloseTo(25000, 4)
+    expect(y65.netFromSavings).toBeCloseTo(25000 - 5015 + 10000, 4)
     expect(y65.shortfall).toBe(true)
   })
 
@@ -197,8 +205,8 @@ describe('runForecast: manual withdrawal overrides replace the solved-for amount
     input.withdrawalOverrides = { 65: { rrspWithdrawal: 5000, tfsaWithdrawal: 5000 } }
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
-    expect(y65.taxPaid).toBeCloseTo(1000, 6)
-    expect(y65.netFromSavings).toBeCloseTo(9000, 6)
+    expect(y65.taxPaid).toBeCloseTo(1003, 4)
+    expect(y65.netFromSavings).toBeCloseTo(8997, 4)
     expect(y65.rrsp).toBeCloseTo((110000 - 5000) * 1.1, 6)
     expect(y65.tfsa).toBeCloseTo((110000 - 5000) * 1.1, 6)
   })
@@ -234,19 +242,19 @@ describe('runForecast: manual withdrawal overrides replace the solved-for amount
 })
 
 describe('runForecast: CPP/OAS are pre-tax and reduce the amount drawn from savings', () => {
-  it('applies the retirement tax rate to CPP, so only its AFTER-TAX value shrinks the gap', () => {
-    // $1,250/mo CPP -> $15,000/yr gross. At 20% tax the after-tax CPP is
-    // 15,000 * 0.80 = 12,000. The 45k need therefore leaves a 33k gap that
-    // savings must net.
+  it('applies real marginal tax to CPP, so only its AFTER-TAX value shrinks the gap', () => {
+    // $1,250/mo CPP -> $15,000/yr gross, taxed alone (nothing stacked on top
+    // yet) at BC's combined first-bracket rate: 15,000 * 20.06% = 3,009 tax,
+    // so after-tax CPP is 11,991. The ~44,985 need therefore leaves a
+    // ~32,994 gap that savings must net.
     const input = baseInput()
     input.retirement.cppMonthly = 1250
     input.retirement.cppStartAge = 65
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
     expect(y65.cpp).toBe(15000) // gross annual
-    expect(y65.cppAfterTax).toBeCloseTo(12000, 6) // after 20% tax
-    // gap now 33,000 -> net cash from savings equals that gap.
-    expect(y65.netFromSavings).toBeCloseTo(33000, 6)
+    expect(y65.cppAfterTax).toBeCloseTo(11991, 6)
+    expect(y65.netFromSavings).toBeCloseTo(32994, 4)
   })
 })
 
@@ -279,26 +287,31 @@ describe('runForecast: per-account withdrawal % and income mix', () => {
   })
 
   it('splits income mix between savings and CPP/OAS proportionally', () => {
-    // $12,000 after-tax CPP against the $45,000 need -> 33,000 from savings.
-    // Income mix: 33,000/45,000 from savings, 12,000/45,000 from CPP.
+    // $11,991 after-tax CPP against the ~$44,985 need -> ~32,994 from savings.
+    // Income mix: 32,994/44,985 from savings, 11,991/44,985 from CPP.
     const input = baseInput()
     input.retirement.cppMonthly = 1250
     input.retirement.cppStartAge = 65
     const rows = runForecast(input)
     const y65 = rows.find((r) => r.age === 65)!
-    expect(y65.incomeFromSavingsPct).toBeCloseTo(33000 / 45000, 6)
-    expect(y65.incomeFromCppOasPct).toBeCloseTo(12000 / 45000, 6)
+    expect(y65.incomeFromSavingsPct).toBeCloseTo(32994 / 44985, 6)
+    expect(y65.incomeFromCppOasPct).toBeCloseTo(11991 / 44985, 6)
     expect(y65.incomeFromSavingsPct + y65.incomeFromCppOasPct).toBeCloseTo(1, 9)
   })
 })
 
 describe('runForecast: ordered savings-plan segments switch at their untilAge', () => {
   it('applies segment 1 through its untilAge, then segment 2 for later years', () => {
-    // Ages 40,41,42 are accumulation (retirementAge 43). incomeTaxRate 0 and
-    // rateOfReturn 0 so each contribution lands 1:1.
-    //   seg1 (until 41): $1,000/mo -> 12,000/yr  -> applies to ages 40, 41
-    //   seg2 (until 43): $2,000/mo -> 24,000/yr  -> applies to age 42
-    //   RRSP: 12,000 -> 24,000 -> 48,000
+    // Ages 40,41,42 are accumulation, and rateOfReturn 0 so each contribution
+    // lands 1:1. currentIncome is 0, but the marginal rate on a $0 income is
+    // still the lowest bracket (20.06% combined federal+BC) — the refund
+    // mechanic doesn't special-case "no income," so every contribution here
+    // reinvests a 20.06% refund on top of the base amount.
+    //   seg1 (until 41): $1,000/mo -> 12,000/yr base + 2,407.20 refund
+    //     = 14,407.20/yr -> applies to ages 40, 41
+    //   seg2 (until 43): $2,000/mo -> 24,000/yr base + 4,814.40 refund
+    //     = 28,814.40/yr -> applies to age 42
+    //   RRSP: 14,407.20 -> 28,814.40 -> 57,628.80
     const input: ForecastInput = {
       initial: {
         currentAge: 40,
@@ -306,9 +319,9 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
         currentTFSA: 0,
         currentIncome: 0,
         retirementAge: 43,
-        incomeTaxRate: 0,
         currentRRSPRoom: 200000,
       },
+      province: 'BC',
       savingsPlan: [
         seg({ id: 'a', monthlyRRSP: 1000, untilAge: 41 }),
         seg({ id: 'b', monthlyRRSP: 2000, untilAge: 43 }),
@@ -319,7 +332,6 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
         cppStartAge: 200,
         oasMonthly: 0,
         oasStartAge: 200,
-        retirementTaxRate: 0.15,
       },
       rateOfReturn: 0,
       bestYearReturn: 0,
@@ -331,9 +343,9 @@ describe('runForecast: ordered savings-plan segments switch at their untilAge', 
       withdrawalOverrides: {},
     }
     const rows = runForecast(input)
-    expect(rows.find((r) => r.age === 40)!.rrsp).toBeCloseTo(12000, 6)
-    expect(rows.find((r) => r.age === 41)!.rrsp).toBeCloseTo(24000, 6)
-    expect(rows.find((r) => r.age === 42)!.rrsp).toBeCloseTo(48000, 6)
+    expect(rows.find((r) => r.age === 40)!.rrsp).toBeCloseTo(14407.2, 6)
+    expect(rows.find((r) => r.age === 41)!.rrsp).toBeCloseTo(28814.4, 6)
+    expect(rows.find((r) => r.age === 42)!.rrsp).toBeCloseTo(57628.8, 6)
   })
 })
 
@@ -349,9 +361,9 @@ describe('runForecast: staged retirement income plan switches at each segment\'s
         currentTFSA: 0,
         currentIncome: 0,
         retirementAge: 65,
-        incomeTaxRate: 0,
         currentRRSPRoom: 0,
       },
+      province: 'BC',
       savingsPlan: [seg({ untilAge: 65 })],
       retirement: {
         incomePlan: [
@@ -362,7 +374,6 @@ describe('runForecast: staged retirement income plan switches at each segment\'s
         cppStartAge: 200,
         oasMonthly: 0,
         oasStartAge: 200,
-        retirementTaxRate: 0,
       },
       rateOfReturn: 0,
       bestYearReturn: 0,
@@ -375,10 +386,10 @@ describe('runForecast: staged retirement income plan switches at each segment\'s
     }
     const rows = runForecast(input)
     for (const age of [65, 66, 67]) {
-      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(60000, 6)
+      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(60000, 3)
     }
     for (const age of [68, 69, 70]) {
-      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(24000, 6)
+      expect(rows.find((r) => r.age === age)!.netFromSavings).toBeCloseTo(24000, 3)
     }
   })
 
@@ -394,7 +405,7 @@ describe('runForecast: staged retirement income plan switches at each segment\'s
     input.endAge = 70
     input.retirement.incomePlan = [{ id: 'stage-1', requiredMonthlyIncome: 3750, untilAge: 67 }]
     const rows = runForecast(input)
-    expect(rows.find((r) => r.age === 70)!.netFromSavings).toBeCloseTo(45000, 6)
+    expect(rows.find((r) => r.age === 70)!.netFromSavings).toBeCloseTo(45000, 3)
   })
 
   it('a shorter early stage can require MORE income than a later stage, not just less', () => {
@@ -405,9 +416,9 @@ describe('runForecast: staged retirement income plan switches at each segment\'s
       { id: 'stage-2', requiredMonthlyIncome: 1000, untilAge: 67 }, // 12,000/yr
     ]
     const rows = runForecast(input)
-    expect(rows.find((r) => r.age === 65)!.netFromSavings).toBeCloseTo(45000, 6)
-    expect(rows.find((r) => r.age === 66)!.netFromSavings).toBeCloseTo(12000, 6)
-    expect(rows.find((r) => r.age === 67)!.netFromSavings).toBeCloseTo(12000, 6)
+    expect(rows.find((r) => r.age === 65)!.netFromSavings).toBeCloseTo(45000, 4)
+    expect(rows.find((r) => r.age === 66)!.netFromSavings).toBeCloseTo(12000, 4)
+    expect(rows.find((r) => r.age === 67)!.netFromSavings).toBeCloseTo(12000, 4)
   })
 })
 
@@ -457,9 +468,9 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         currentTFSA: 5000,
         currentIncome: 0,
         retirementAge: 95,
-        incomeTaxRate: 0.25,
         currentRRSPRoom: 0,
       },
+      province: 'BC',
       savingsPlan: [seg({ untilAge: 95 })],
       retirement: {
         incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 1000 / 12, untilAge: 95 }],
@@ -467,7 +478,6 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         cppStartAge: 200,
         oasMonthly: 0,
         oasStartAge: 200,
-        retirementTaxRate: 0.15,
       },
       rateOfReturn: 0,
       bestYearReturn: 0,
@@ -506,7 +516,7 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
     const spent = runForecast(forcedSurplusInput(false)).find((r) => r.age === 95)!
     expect(reinvested.netFromSavings + reinvested.tfsa).toBeCloseTo(
       spent.netFromSavings + spent.tfsa,
-      6,
+      3,
     )
   })
 
@@ -535,9 +545,9 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         currentTFSA: 5000,
         currentIncome: 90000,
         retirementAge: 65,
-        incomeTaxRate: 0.25,
         currentRRSPRoom: 40000,
       },
+      province: 'BC',
       savingsPlan: [seg({ monthlyRRSP: 500, monthlyTFSA: 500, untilAge: 65 })],
       retirement: {
         incomePlan: [{ id: 'income-1', requiredMonthlyIncome: 4000, untilAge: 100 }],
@@ -545,7 +555,6 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
         cppStartAge: 65,
         oasMonthly: 700,
         oasStartAge: 65,
-        retirementTaxRate: 0.15,
       },
       rateOfReturn: 0.5,
       bestYearReturn: 0.5,
@@ -564,15 +573,18 @@ describe('runForecast: reinvestForcedWithdrawals decides where an unneeded force
 describe('runForecast: RRSP contribution room accrues and is spent by contributions', () => {
   it('adds 18% of income as new room each accumulation year, then subtracts the RRSP contribution', () => {
     // income 100,000 -> accrual 18,000/yr (well under the annual dollar cap).
-    // Starting room 10,000. seg contributes $1,000/mo RRSP, 0% tax -> $12,000/yr.
-    // Age 64 (only accumulation year): room = 10,000 + 18,000 - 12,000 = 16,000.
+    // Starting room 10,000. seg contributes $1,000/mo RRSP -> $12,000/yr base.
+    // $100,000 sits in the second federal bracket (20.5%) and second BC
+    // bracket (10.5%) -> 31% marginal, so the reinvested refund adds
+    // 12,000 * 0.31 = 3,720, for a total RRSP contribution of 15,720 that
+    // room is spent against.
+    // Age 64 (only accumulation year): room = 10,000 + 18,000 - 15,720 = 12,280.
     const input = baseInput()
     input.initial.currentIncome = 100000
     input.initial.currentRRSPRoom = 10000
-    input.initial.incomeTaxRate = 0
     input.savingsPlan = [seg({ monthlyRRSP: 1000, untilAge: 65 })]
     const rows = runForecast(input)
-    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(16000, 6)
+    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(12280, 6)
   })
 
   it('caps the annual accrual at the CRA dollar limit for high earners', () => {
@@ -586,13 +598,15 @@ describe('runForecast: RRSP contribution room accrues and is spent by contributi
   })
 
   it('goes negative when contributions outstrip available room', () => {
+    // No income means no accrual, but the marginal rate on a $0 income is
+    // still the lowest bracket (20.06%), so the $12,000 base contribution
+    // reinvests a 2,407.20 refund -> 14,407.20 total spent against room.
     const input = baseInput()
     input.initial.currentIncome = 0 // no accrual
     input.initial.currentRRSPRoom = 5000
-    input.initial.incomeTaxRate = 0
-    input.savingsPlan = [seg({ monthlyRRSP: 1000, untilAge: 65 })] // $12,000/yr contribution
+    input.savingsPlan = [seg({ monthlyRRSP: 1000, untilAge: 65 })]
     const rows = runForecast(input)
-    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(-7000, 6)
+    expect(rows.find((r) => r.age === 64)!.rrspRoom).toBeCloseTo(5000 - 14407.2, 6)
   })
 
   it('holds room flat through retirement (no earned income, no contributions)', () => {

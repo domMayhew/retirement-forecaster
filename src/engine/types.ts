@@ -6,6 +6,10 @@
 // All monetary amounts are in dollars. All rates are decimals (0.05 = 5%).
 // ---------------------------------------------------------------------------
 
+import type { Province } from './tax'
+
+export type { Province }
+
 /** Which registered account a contribution or balance belongs to. */
 export type AccountType = 'RRSP' | 'TFSA'
 
@@ -18,8 +22,6 @@ export interface InitialConditions {
   currentTFSA: number
   currentIncome: number
   retirementAge: number
-  /** Marginal income tax rate while working. Used to size the RRSP refund. Default 0.25. */
-  incomeTaxRate: number
   /**
    * RRSP contribution room available today, as reported on the saver's latest
    * CRA Notice of Assessment (unused room carries forward indefinitely, so
@@ -66,14 +68,12 @@ export interface RetirementIncomeSegment {
 export interface RetirementPlan {
   /** Ordered stages of required monthly income through retirement. */
   incomePlan: RetirementIncomeSegment[]
-  /** CPP income per month, PRE-TAX. Taxed at retirementTaxRate like RRSP income. */
+  /** CPP income per month, PRE-TAX. Taxed as ordinary income alongside RRSP withdrawals. */
   cppMonthly: number
   cppStartAge: number
-  /** OAS income per month, PRE-TAX. Taxed at retirementTaxRate like RRSP income. */
+  /** OAS income per month, PRE-TAX. Taxed as ordinary income alongside RRSP withdrawals. */
   oasMonthly: number
   oasStartAge: number
-  /** Flat tax rate applied to RRSP withdrawals AND to CPP/OAS in retirement. Default 0.15. */
-  retirementTaxRate: number
 }
 
 /**
@@ -104,6 +104,13 @@ export interface ForecastInput {
   initial: InitialConditions
   savingsPlan: SavingsPlanSegment[]
   retirement: RetirementPlan
+  /**
+   * Which province's tax brackets to use (combined with federal brackets)
+   * for both the working-years RRSP refund and retirement-years withdrawal
+   * tax. One jurisdiction for the whole plan — real movers aside, this is a
+   * simplification the app accepts deliberately.
+   */
+  province: Province
   /** Assumed AVERAGE annual rate of return, applied to both RRSP and TFSA. */
   rateOfReturn: number
   /**
@@ -187,11 +194,17 @@ export interface ForecastYear {
   // Retirement income breakdown (0 during accumulation).
   /** Gross (pre-tax) annual CPP income received this year. */
   cpp: number
-  /** After-tax CPP income (cpp * (1 - retirementTaxRate)). */
+  /**
+   * After-tax CPP income. CPP and OAS are taxed together as the "base" layer
+   * of this year's taxable income, with any RRSP withdrawal stacked on top
+   * (progressive brackets mean the marginal rate depends on what else is
+   * being taxed alongside it) — this attributes that combined CPP+OAS tax
+   * proportionally between the two.
+   */
   cppAfterTax: number
   /** Gross (pre-tax) annual OAS income received this year. */
   oas: number
-  /** After-tax OAS income (oas * (1 - retirementTaxRate)). */
+  /** After-tax OAS income — see `cppAfterTax` for the attribution convention. */
   oasAfterTax: number
   /** After-tax cash actually delivered to the saver from account withdrawals. */
   netFromSavings: number
@@ -203,7 +216,12 @@ export interface ForecastYear {
   incomeFromSavingsPct: number
   /** Fraction of this year's total after-tax retirement income that came from CPP + OAS. */
   incomeFromCppOasPct: number
-  /** Tax paid on RRSP withdrawals this year (does not include CPP/OAS tax). */
+  /**
+   * Tax attributed to the RRSP withdrawal this year: the INCREMENTAL tax
+   * caused by stacking the withdrawal on top of CPP/OAS in the same
+   * progressive bracket table (does not include the CPP/OAS "base" tax —
+   * see `cppAfterTax`).
+   */
   taxPaid: number
   /**
    * True when accounts were exhausted and the required income could not be

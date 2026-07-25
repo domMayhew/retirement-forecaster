@@ -21,17 +21,17 @@ import type {
   Forecast,
   ForecastInput,
   ForecastYear,
+  Province,
   RetirementPlan,
   SavingsPlanSegment,
 } from './types'
 import { yearlyReturns } from './variability'
+import { incomeTaxOwed, marginalTaxRate } from './tax'
 
 // --- Defaults -------------------------------------------------------------
 // The UI is expected to pass fully-populated objects, but these keep the pure
 // functions and any partial callers well-behaved.
-export const DEFAULT_INCOME_TAX_RATE = 0.25
 export const DEFAULT_REFUND_REINVEST_FRACTION = 1.0
-export const DEFAULT_RETIREMENT_TAX_RATE = 0.15
 export const DEFAULT_END_AGE = 100
 
 // RRSP contribution room accrues each year at 18% of earned income, capped at
@@ -118,34 +118,41 @@ export interface RetirementWithdrawalResult {
   tfsaWithdrawal: number
   /** Fraction withdrawn from each account (same % from both). 0 when none needed. */
   withdrawalPct: number
-  /** Tax paid on the RRSP portion of the withdrawal. */
+  /**
+   * Tax attributed to the RRSP withdrawal: CPP/OAS are treated as the "base"
+   * layer of taxable income, with the RRSP withdrawal stacked on top, so
+   * this is the INCREMENTAL tax that stacking causes — not the RRSP
+   * withdrawal's own flat-rate tax, since there is no single flat rate under
+   * progressive brackets.
+   */
   taxPaid: number
-  /** After-tax cash delivered to the saver. Equals `gap` unless there is a shortfall. */
+  /** After-tax cash delivered to the saver from savings withdrawals (excludes CPP/OAS). */
   netFromSavings: number
   /** True when balances could not cover the required withdrawal. */
   shortfall: boolean
 }
 
+const WITHDRAWAL_PCT_TOLERANCE = 1e-10
+const WITHDRAWAL_MAX_ITERATIONS = 100
+
 /**
- * Work out the withdrawals needed to net `gap` dollars of after-tax income
- * from the two accounts, taking the SAME PERCENTAGE from each.
+ * Work out the withdrawals needed to net `requiredAnnualIncome` dollars of
+ * after-tax income for the year (CPP/OAS included), taking the SAME
+ * PERCENTAGE from each account.
  *
- * Only the RRSP portion is taxable (at retirementTaxRate); TFSA is tax-free.
- * We solve exactly for the gross withdrawal so the after-tax cash equals gap:
- *
- *   rrspShare       = rrsp / (rrsp + tfsa)
- *   netTaxRate      = rrspShare * retirementTaxRate
- *   actualWithdrawal = gap / (1 - netTaxRate)
- *   withdrawalPct   = actualWithdrawal / (rrsp + tfsa)
- *   rrspWithdrawal  = withdrawalPct * rrsp
- *   tfsaWithdrawal  = withdrawalPct * tfsa
- *   taxPaid         = rrspWithdrawal * retirementTaxRate
- *   netFromSavings  = (rrspWithdrawal - taxPaid) + tfsaWithdrawal   // === gap
+ * Only the RRSP portion is taxable; TFSA is tax-free. But CPP/OAS and the
+ * RRSP withdrawal are taxed TOGETHER under progressive brackets (see
+ * `./tax.ts`) — the marginal rate on the RRSP withdrawal depends on how much
+ * CPP/OAS already fills the lower brackets, so there's no single flat rate
+ * to solve for algebraically like a flat-tax model could. Instead this
+ * bisects the withdrawal fraction until the resulting after-tax income
+ * matches the requirement (the same bisection approach used elsewhere in
+ * this engine for other "solve for X" problems — see `breakEvenRate.ts`).
  *
  * Edge cases:
- *   - gap <= 0            : no withdrawal, no shortfall.
- *   - total balance == 0  : nothing to withdraw, shortfall = true.
- *   - actualWithdrawal > total balance : drain both accounts, shortfall = true.
+ *   - requiredAnnualIncome already covered by CPP/OAS alone : no withdrawal, no shortfall.
+ *   - total balance <= 0 (and CPP/OAS insufficient)         : nothing to withdraw, shortfall = true.
+ *   - draining everything still isn't enough                : drain both accounts, shortfall = true.
  *
  * NOTE: `startRRSP`/`startTFSA` are the START-of-year balances (growth for the
  * year has not been applied yet — see the growth-timing convention).
@@ -153,13 +160,26 @@ export interface RetirementWithdrawalResult {
 export function computeRetirementWithdrawal(
   startRRSP: number,
   startTFSA: number,
-  gap: number,
-  retirementTaxRate: number,
+  requiredAnnualIncome: number,
+  cppOasGross: number,
+  province: Province,
 ): RetirementWithdrawalResult {
   const total = startRRSP + startTFSA
+  const taxOnCppOas = cppOasGross > 0 ? incomeTaxOwed(cppOasGross, province) : 0
+  const cppOasAfterTax = cppOasGross - taxOnCppOas
 
-  // Nothing required from savings this year.
-  if (gap <= 0) {
+  // After-tax income (CPP/OAS + savings) at a given withdrawal fraction —
+  // monotonically increasing in pct, since the marginal tax rate never
+  // reaches 100%.
+  function netAtPct(pct: number): number {
+    const rrspWithdrawal = pct * startRRSP
+    const tfsaWithdrawal = pct * startTFSA
+    const taxableIncome = rrspWithdrawal + cppOasGross
+    return taxableIncome - incomeTaxOwed(taxableIncome, province) + tfsaWithdrawal
+  }
+
+  // Nothing required from savings this year — CPP/OAS alone already cover it.
+  if (requiredAnnualIncome <= netAtPct(0)) {
     return {
       rrspWithdrawal: 0,
       tfsaWithdrawal: 0,
@@ -182,13 +202,10 @@ export function computeRetirementWithdrawal(
     }
   }
 
-  const rrspShare = startRRSP / total
-  const netTaxRate = rrspShare * retirementTaxRate
-  const actualWithdrawal = gap / (1 - netTaxRate)
-
-  // Not enough saved to meet the gap: drain everything available (100%).
-  if (actualWithdrawal > total) {
-    const taxPaid = startRRSP * retirementTaxRate
+  // Not enough saved to meet the need: drain everything available (100%).
+  if (requiredAnnualIncome > netAtPct(1)) {
+    const taxableIncome = startRRSP + cppOasGross
+    const taxPaid = incomeTaxOwed(taxableIncome, province) - taxOnCppOas
     const netFromSavings = startRRSP - taxPaid + startTFSA
     return {
       rrspWithdrawal: startRRSP,
@@ -200,11 +217,25 @@ export function computeRetirementWithdrawal(
     }
   }
 
-  const withdrawalPct = actualWithdrawal / total
+  // Bisection: hi always meets the need, lo never does.
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < WITHDRAWAL_MAX_ITERATIONS && hi - lo > WITHDRAWAL_PCT_TOLERANCE; i++) {
+    const mid = (lo + hi) / 2
+    if (netAtPct(mid) >= requiredAnnualIncome) hi = mid
+    else lo = mid
+  }
+
+  const withdrawalPct = hi
   const rrspWithdrawal = withdrawalPct * startRRSP
   const tfsaWithdrawal = withdrawalPct * startTFSA
-  const taxPaid = rrspWithdrawal * retirementTaxRate
-  const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
+  const taxPaid = incomeTaxOwed(rrspWithdrawal + cppOasGross, province) - taxOnCppOas
+  // netFromSavings is taken directly from the bisection's own target rather
+  // than rrspWithdrawal - taxPaid + tfsaWithdrawal: at extreme rates/balances
+  // those terms can run enormous while their difference stays a modest,
+  // everyday number, and floating-point subtraction of two huge near-equal
+  // values loses precision fast enough to misfire the shortfall check.
+  const netFromSavings = requiredAnnualIncome - cppOasAfterTax
 
   return {
     rrspWithdrawal,
@@ -296,7 +327,8 @@ export function applyRRIFMinimum(
   startRRSP: number,
   startTFSA: number,
   age: number,
-  retirementTaxRate: number,
+  cppOasGross: number,
+  province: Province,
 ): RRIFAdjustedWithdrawal {
   const minRRSPWithdrawal = startRRSP * rrifMinimumFactor(age)
   if (base.rrspWithdrawal >= minRRSPWithdrawal) {
@@ -304,11 +336,20 @@ export function applyRRIFMinimum(
   }
 
   const rrspWithdrawal = Math.min(minRRSPWithdrawal, startRRSP)
-  const extraAfterTax = (rrspWithdrawal - base.rrspWithdrawal) * (1 - retirementTaxRate)
+
+  // The extra after-tax cash from forcing the RRSP withdrawal up is taxed at
+  // the marginal rate on top of everything already stacked below it —
+  // CPP/OAS, then the plan's own base RRSP withdrawal — not a flat rate on
+  // the whole thing.
+  const taxOnCppOas = cppOasGross > 0 ? incomeTaxOwed(cppOasGross, province) : 0
+  const taxOnBase = incomeTaxOwed(cppOasGross + base.rrspWithdrawal, province)
+  const taxOnForced = incomeTaxOwed(cppOasGross + rrspWithdrawal, province)
+  const extraAfterTax = (rrspWithdrawal - base.rrspWithdrawal) - (taxOnForced - taxOnBase)
+
   const tfsaWithdrawal = Math.max(0, base.tfsaWithdrawal - extraAfterTax)
   const surplus = Math.max(0, extraAfterTax - base.tfsaWithdrawal)
 
-  const taxPaid = rrspWithdrawal * retirementTaxRate
+  const taxPaid = taxOnForced - taxOnCppOas
   const netFromSavings = rrspWithdrawal - taxPaid + tfsaWithdrawal
   const total = startRRSP + startTFSA
   const withdrawalPct = total > 0 ? (rrspWithdrawal + tfsaWithdrawal) / total : 0
@@ -380,8 +421,9 @@ export function activeSegmentForAge<T extends { untilAge: number }>(age: number,
  * retired and begins drawing down.
  */
 export function runForecast(input: ForecastInput): Forecast {
-  const { initial, savingsPlan, retirement, rateOfReturn, bestYearReturn, worstYearReturn, seed, endAge } = input
-  const { currentAge, retirementAge, incomeTaxRate } = initial
+  const { initial, savingsPlan, retirement, province, rateOfReturn, bestYearReturn, worstYearReturn, seed, endAge } =
+    input
+  const { currentAge, retirementAge } = initial
 
   const rows: ForecastYear[] = []
 
@@ -391,6 +433,11 @@ export function runForecast(input: ForecastInput): Forecast {
   const totalYears = endAge - currentAge + 1
   const rates = yearlyReturns(seed, totalYears, rateOfReturn, worstYearReturn, bestYearReturn)
   const rateForAge = (age: number) => rates[age - currentAge]
+
+  // The saver's income is assumed flat across the accumulation phase, so
+  // this marginal rate — the rate the RRSP refund is sized against — only
+  // needs computing once.
+  const accumulationTaxRate = marginalTaxRate(initial.currentIncome, province)
 
   let rrsp = initial.currentRRSP
   let tfsa = initial.currentTFSA
@@ -407,7 +454,7 @@ export function runForecast(input: ForecastInput): Forecast {
     const averageReturnToDate = cumulativeRateSum / (age - currentAge + 1)
     const startRRSP = rrsp
     const startTFSA = tfsa
-    const computed = computeAccumulationYear(startRRSP, startTFSA, segment, incomeTaxRate, yearRate)
+    const computed = computeAccumulationYear(startRRSP, startTFSA, segment, accumulationTaxRate, yearRate)
 
     // A manual override (entered directly in the results table) replaces the
     // segment-derived contribution for this specific age — it stands in for
@@ -458,25 +505,27 @@ export function runForecast(input: ForecastInput): Forecast {
   }
 
   // --- Retirement: retirementAge .. endAge (inclusive) -------------------
-  const taxRate = retirement.retirementTaxRate
   for (let age = retirementAge; age <= endAge; age++) {
     const yearRate = rateForAge(age)
     cumulativeRateSum += yearRate
     const averageReturnToDate = cumulativeRateSum / (age - currentAge + 1)
-    // CPP/OAS are entered PRE-TAX and taxed at the retirement rate, so only
-    // their after-tax value counts toward the required (after-tax) income.
     const cpp = cppForAge(age, retirement)
     const oas = oasForAge(age, retirement)
-    const cppAfterTax = cpp * (1 - taxRate)
-    const oasAfterTax = oas * (1 - taxRate)
+    // CPP/OAS and the RRSP withdrawal are taxed TOGETHER under progressive
+    // brackets — CPP/OAS form the "base" layer, taxed as if they were the
+    // only income, with the withdrawal stacked on top of them.
+    const cppOasGross = cpp + oas
+    const taxOnCppOas = cppOasGross > 0 ? incomeTaxOwed(cppOasGross, province) : 0
+    const cppOasAfterTax = cppOasGross - taxOnCppOas
+    const cppAfterTax = cppOasGross > 0 ? cppOasAfterTax * (cpp / cppOasGross) : 0
+    const oasAfterTax = cppOasGross > 0 ? cppOasAfterTax * (oas / cppOasGross) : 0
     const incomeSegment = activeSegmentForAge(age, retirement.incomePlan)
     const requiredAnnualIncome = incomeSegment.requiredMonthlyIncome * 12
-    const gap = requiredAnnualIncome - cppAfterTax - oasAfterTax
 
     const startRRSP = rrsp
     const startTFSA = tfsa
-    const needed = computeRetirementWithdrawal(startRRSP, startTFSA, gap, taxRate)
-    const adjusted = applyRRIFMinimum(needed, startRRSP, startTFSA, age, taxRate)
+    const needed = computeRetirementWithdrawal(startRRSP, startTFSA, requiredAnnualIncome, cppOasGross, province)
+    const adjusted = applyRRIFMinimum(needed, startRRSP, startTFSA, age, cppOasGross, province)
 
     // A manual override (entered directly in the results table) replaces the
     // solved-for withdrawal for this specific age, clamped to what's actually
@@ -500,14 +549,14 @@ export function runForecast(input: ForecastInput): Forecast {
     const reinvest = !overridden && input.reinvestForcedWithdrawals && adjusted.forcedMinimum
     const reinvestedSurplus = reinvest ? adjusted.surplus : 0
 
-    const taxPaid = rrspWithdrawal * taxRate
+    const taxPaid = incomeTaxOwed(rrspWithdrawal + cppOasGross, province) - taxOnCppOas
     // When reinvesting, use the pre-forcing "needed" net cash directly rather
     // than the full withdrawal minus the surplus: at extreme rates/balances
     // both those terms can run into the quadrillions while their difference
     // is a modest, everyday number, and floating-point subtraction of two
     // huge near-equal values loses precision fast enough to misfire the
     // shortfall check. `needed.netFromSavings` was computed directly at the
-    // gap's own (small) scale, so it's exact where the subtraction isn't.
+    // requirement's own (small) scale, so it's exact where the subtraction isn't.
     const netFromSavings = reinvest
       ? needed.netFromSavings
       : rrspWithdrawal - taxPaid + tfsaWithdrawal

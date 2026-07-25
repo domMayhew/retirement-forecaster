@@ -100,6 +100,34 @@ export function PercentField({ label, value, onChange, min, max, step, id }: Bas
   )
 }
 
+/** A labeled dropdown for a small fixed set of string options (e.g. province). */
+export function SelectField<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+  id,
+}: {
+  label: string
+  value: T
+  onChange: (value: T) => void
+  options: { value: T; label: string }[]
+  id?: string
+}) {
+  return (
+    <label className="field" htmlFor={id}>
+      <span className="field-label">{label}</span>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value as T)}>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 /**
  * Bare numeric <input> without its own <label> — used inside affixed layouts
  * and table cells. Buffers the raw typed string so the field can be emptied

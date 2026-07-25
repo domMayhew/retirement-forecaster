@@ -3,6 +3,7 @@ import type {
   ContributionOverride,
   ForecastInput,
   InitialConditions,
+  Province,
   RetirementIncomeSegment,
   RetirementPlan,
   SavingsPlanSegment,
@@ -103,6 +104,10 @@ function App() {
 
   function patchInitial(patch: Partial<InitialConditions>) {
     setInput((prev) => ({ ...prev, initial: { ...prev.initial, ...patch } }))
+  }
+
+  function setProvince(province: Province) {
+    setInput((prev) => ({ ...prev, province }))
   }
 
   function patchRetirement(patch: Partial<RetirementPlan>) {
@@ -247,7 +252,12 @@ function App() {
           />
           <div className="plan-grid">
             <div className="plan-cell plan-cell-initial">
-              <InitialConditionsForm value={input.initial} onChange={patchInitial} />
+              <InitialConditionsForm
+                value={input.initial}
+                onChange={patchInitial}
+                province={input.province}
+                onProvinceChange={setProvince}
+              />
             </div>
             <div className="plan-cell plan-cell-retirement">
               <RetirementPlanForm

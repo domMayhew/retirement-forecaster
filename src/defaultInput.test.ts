@@ -31,7 +31,7 @@ describe('withDefaults: retirement income plan migration', () => {
         cppStartAge: DEFAULT_INPUT.retirement.cppStartAge,
         oasMonthly: DEFAULT_INPUT.retirement.oasMonthly,
         oasStartAge: DEFAULT_INPUT.retirement.oasStartAge,
-        retirementTaxRate: DEFAULT_INPUT.retirement.retirementTaxRate,
+        retirementTaxRate: 0.15, // predates progressive tax brackets; no longer read anywhere
         requiredMonthlyIncome: 5500,
       },
     } as unknown as ForecastInput
@@ -50,11 +50,27 @@ describe('withDefaults: retirement income plan migration', () => {
         cppStartAge: DEFAULT_INPUT.retirement.cppStartAge,
         oasMonthly: DEFAULT_INPUT.retirement.oasMonthly,
         oasStartAge: DEFAULT_INPUT.retirement.oasStartAge,
-        retirementTaxRate: DEFAULT_INPUT.retirement.retirementTaxRate,
+        retirementTaxRate: 0.15, // predates progressive tax brackets; no longer read anywhere
       },
     } as unknown as ForecastInput
 
     const result = withDefaults(bare)
     expect(result.retirement.incomePlan).toEqual(DEFAULT_INPUT.retirement.incomePlan)
+  })
+})
+
+describe('withDefaults: province migration', () => {
+  it('leaves a plan that already has its own province untouched', () => {
+    const saved: ForecastInput = { ...DEFAULT_INPUT, province: 'AB' }
+    expect(withDefaults(saved).province).toBe('AB')
+  })
+
+  it('falls back to the DEFAULT_INPUT province for a plan saved before provinces existed', () => {
+    // Simulates JSON saved before real tax brackets were introduced, which
+    // predates `province` in the type entirely.
+    const legacy = { ...DEFAULT_INPUT } as Partial<ForecastInput>
+    delete legacy.province
+    const result = withDefaults(legacy as ForecastInput)
+    expect(result.province).toBe(DEFAULT_INPUT.province)
   })
 })
